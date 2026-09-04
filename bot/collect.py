@@ -3,9 +3,14 @@
 
 Запускается по расписанию в GitHub Actions и кладёт результат в data/servers.json.
 
-Онлайн берётся не с сайта, а прямо у игровых серверов по штатному протоколу
-SA-MP: сервер сам отвечает на такой запрос, это дёшево и не трогает сайт с его
-защитой от ботов.
+Онлайн берётся с сайта blackrussia.online: одна загрузка страницы отдаёт все
+серверы разом, то есть 96 обращений в сутки при сборе каждые 15 минут.
+Прямой запрос к игровым серверам по протоколу SA-MP был бы легче, но у разных
+серверов проекта разные порты, и подтвердить их не удалось — непроверенный
+путь в рабочем боте хуже, чем проверенный и чуть более тяжёлый.
+
+Страница закрыта JS-челленджем антиддоса, поэтому нужен настоящий браузер;
+он пускает примерно с третьей попытки, отсюда повторы.
 
 Цены снимаются двумя числами. Абсолютный минимум — то, что видно первой
 строкой списка, — на каждом пятом сервере недостижим: его держат продавцы
@@ -16,8 +21,6 @@ SA-MP: сервер сам отвечает на такой запрос, это
 import json
 import os
 import re
-import socket
-import struct
 import sys
 import time
 import urllib.error
@@ -29,7 +32,7 @@ from html import unescape
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(HERE), "data", "servers.json")
 
-SAMP_PORT = 7777
+BR_URL = "https://blackrussia.online/"
 FUNPAY_URL = "https://funpay.com/chips/186/"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -55,43 +58,90 @@ TAG_RE = re.compile(r"<[^>]+>")
 
 # --------------------------------------------------------------- игровой онлайн
 
-def samp_query(host, port=SAMP_PORT, timeout=3.0):
-    """Спрашивает у игрового сервера его онлайн по протоколу SA-MP.
-
-    Пакет: 'SAMP' + 4 байта IP + 2 байта порта + опкод 'i'. В ответе после
-    того же заголовка идут флаг пароля, текущий онлайн и лимит слотов.
-    """
-    try:
-        ip = socket.gethostbyname(host)
-    except socket.gaierror:
-        return None
-    packet = b"SAMP" + bytes(int(x) for x in ip.split(".")) + struct.pack("<H", port) + b"i"
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(timeout)
-    try:
-        s.sendto(packet, (ip, port))
-        data, _ = s.recvfrom(4096)
-    except (socket.timeout, OSError):
-        return None
-    finally:
-        s.close()
-    if len(data) < 17 or not data.startswith(b"SAMP"):
-        return None
-    online, cap = struct.unpack("<HH", data[12:16])
-    return {"online": online, "cap": cap}
+SRV_ROW_RE = re.compile(
+    r"#(\d{1,2})\s*\n\s*([A-ZА-Я0-9 \-.]{2,20})\s*\n\s*([\d  ]{1,6})\s*/\s*([\d  ]{3,6})")
 
 
-def collect_online(servers, workers=24):
-    """Опрашивает все серверы параллельно; неответившие остаются без онлайна."""
-    def one(srv):
-        for port in (SAMP_PORT, 5125):      # у части серверов нестандартный порт
-            got = samp_query(srv["host"], port)
-            if got:
-                return {**srv, **got, "port": port}
-        return {**srv, "online": None, "cap": None, "port": None}
+def _proxy_routing(ctx):
+    """В песочнице с агент-прокси браузер не доверяет её CA, а отключать
+    проверку сертификата нельзя. Тогда запросы исполняет urllib, а браузер
+    только рисует. В GitHub Actions прокси нет и эта ветка не включается."""
+    def handler(route, request):
+        pass_through = {"cookie", "referer", "accept", "accept-language", "user-agent"}
+        hdrs = {k: v for k, v in request.headers.items() if k.lower() in pass_through}
+        hdrs.setdefault("User-Agent", UA)
+        try:
+            req = urllib.request.Request(request.url, headers=hdrs, method=request.method)
+            with urllib.request.urlopen(req, timeout=45) as r:
+                body, hs = r.read(), r.headers
+            out = {"content-type": hs.get("Content-Type", "text/html; charset=utf-8")}
+            for sc in hs.get_all("Set-Cookie") or []:
+                out["set-cookie"] = sc
+            route.fulfill(status=200, body=body, headers=out)
+        except Exception:
+            route.abort()
+    ctx.route("**/*", handler)
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(one, servers))
+
+def _chromium_path():
+    """В образах с предустановленным браузером его версия может не совпасть с
+    той, что ждёт playwright. Путь можно задать явно через CHROMIUM_PATH."""
+    explicit = os.environ.get("CHROMIUM_PATH")
+    if explicit and os.path.exists(explicit):
+        return explicit
+    import glob
+    found = sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome"))
+    return found[-1] if found else None
+
+
+def collect_online(attempts=6):
+    """Снимает онлайн всех серверов со страницы проекта."""
+    from playwright.sync_api import sync_playwright
+
+    exe = _chromium_path()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(**({"executable_path": exe} if exe else {}))
+        try:
+            for n in range(1, attempts + 1):
+                ctx = browser.new_context(locale="ru-RU", user_agent=UA)
+                if os.environ.get("HTTPS_PROXY"):
+                    _proxy_routing(ctx)
+                page = ctx.new_page()
+                try:
+                    page.goto(BR_URL, wait_until="commit", timeout=60000)
+                    for _ in range(12):
+                        page.wait_for_timeout(3000)
+                        try:
+                            title = page.title()
+                        except Exception:
+                            continue
+                        if title.strip() and "Check your browser" not in title:
+                            break
+                    else:
+                        print(f"попытка {n}: челлендж не пройден", file=sys.stderr)
+                        continue
+                    try:
+                        page.wait_for_function(
+                            "() => /#\\d{1,2}[^]{0,40}\\d+\\s*\\/\\s*\\d{3,}/.test(document.body.innerText)",
+                            timeout=45000)
+                    except Exception:
+                        pass
+                    text = re.sub(r"<[^>]+>", "\n", page.content())
+                    rows = {}
+                    for m in SRV_ROW_RE.finditer(re.sub(r"\n\s*\n+", "\n", text)):
+                        digits = lambda g: int(re.sub(r"\D", "", m.group(g)))
+                        rows[int(m.group(1))] = {"online": digits(3), "cap": digits(4)}
+                    if rows:
+                        print(f"попытка {n}: снят онлайн {len(rows)} серверов", file=sys.stderr)
+                        return rows
+                    print(f"попытка {n}: список пуст", file=sys.stderr)
+                except Exception as exc:
+                    print(f"попытка {n}: {type(exc).__name__}", file=sys.stderr)
+                finally:
+                    ctx.close()
+        finally:
+            browser.close()
+    return {}
 
 
 # --------------------------------------------------------------------- цены
@@ -186,9 +236,9 @@ def main():
     servers = json.load(open(os.path.join(HERE, "servers.json"), encoding="utf-8"))
     print(f"серверов в справочнике: {len(servers)}", file=sys.stderr)
 
-    online = collect_online(servers)
-    answered = sum(1 for s in online if s["online"] is not None)
-    print(f"ответили по SA-MP: {answered}/{len(online)}", file=sys.stderr)
+    online = collect_online()
+    answered = len(online)
+    print(f"снят онлайн: {answered}/{len(servers)}", file=sys.stderr)
 
     lots = drop_junk(parse_lots(fetch(FUNPAY_URL)))
     print(f"лотов после отсева заглушек: {len(lots)}", file=sys.stderr)
@@ -208,22 +258,23 @@ def main():
         checked = dict(zip(to_check, pool.map(read_min_order, to_check)))
 
     out = []
-    for srv in online:
+    for srv in servers:
         key = f'№{srv["num"]:02d} {srv["name"]}'
         group = next((v for k, v in by_server.items() if k.lower() == key.lower()), None)
         stats = price_stats(group, checked) if group else None
+        live = online.get(srv["num"], {})
         row = {"num": srv["num"], "name": srv["name"],
-               "online": srv["online"], "cap": srv["cap"]}
+               "online": live.get("online"), "cap": live.get("cap")}
         if stats:
             row.update(stats)
-            if srv["online"] and stats["safe"]:
+            if live.get("online") and stats["safe"]:
                 # Выручка фармера ≈ скорость фарма × цена; онлайн — прокси первого.
-                row["index"] = round(srv["online"] * stats["safe"] / 1000)
+                row["index"] = round(live["online"] * stats["safe"] / 1000)
         out.append(row)
 
     payload = {
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "source": {"prices": FUNPAY_URL, "online": "SA-MP query"},
+        "source": {"prices": FUNPAY_URL, "online": BR_URL},
         "servers_total": len(out),
         "online_answered": answered,
         "priced": sum(1 for r in out if r.get("min")),
