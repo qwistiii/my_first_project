@@ -1,0 +1,435 @@
+<title>Биржа виртов Black Russia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#EDF0EF; --surface:#FCFCFB; --surface-2:#F4F6F5;
+  --ink:#12191C; --ink-2:#3D4B4E; --ink-3:#66767A;
+  --rule:#D3DAD8; --rule-2:#E3E8E6;
+  --teal:#0E9488; --rust:#B4551F; --crit:#A32E22;
+  --teal-soft:#0E948820; --rust-soft:#B4551F1a;
+  --shadow:0 1px 2px #12191c0f;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1416; --surface:#161E20; --surface-2:#1C2528;
+    --ink:#E7EDEB; --ink-2:#B3C1C0; --ink-3:#849697;
+    --rule:#2A3639; --rule-2:#222D30;
+    --teal:#0E9488; --rust:#B4551F; --crit:#C4483A;
+    --teal-soft:#0E948826; --rust-soft:#B4551F26;
+    --shadow:0 1px 2px #0006;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1416; --surface:#161E20; --surface-2:#1C2528;
+  --ink:#E7EDEB; --ink-2:#B3C1C0; --ink-3:#849697;
+  --rule:#2A3639; --rule-2:#222D30;
+  --teal:#0E9488; --rust:#B4551F; --crit:#C4483A;
+  --teal-soft:#0E948826; --rust-soft:#B4551F26;
+  --shadow:0 1px 2px #0006;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.6; margin:0;
+}
+.wrap{max-width:1120px; margin:0 auto; padding:0 24px 96px}
+h1,h2,h3,.eyebrow,.fig-n{font-family:Oswald,"IBM Plex Sans",system-ui,sans-serif; font-weight:500}
+h1{font-size:clamp(34px,5.4vw,58px); line-height:1.04; margin:0; text-wrap:balance; letter-spacing:.005em}
+h2{font-size:clamp(23px,3vw,31px); line-height:1.14; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; margin:0 0 8px; letter-spacing:.02em; text-transform:uppercase; color:var(--ink-2)}
+p{margin:0 0 14px; max-width:66ch}
+a{color:var(--teal)}
+.mono,td.num,th.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.eyebrow{
+  font-size:12.5px; letter-spacing:.17em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 14px;
+}
+
+/* ---------- шапка ---------- */
+header{padding:56px 0 34px; border-bottom:2px solid var(--ink)}
+.lede{font-size:19px; color:var(--ink-2); max-width:60ch; margin:18px 0 0}
+.scope{
+  display:flex; flex-wrap:wrap; gap:0 26px; margin:22px 0 0;
+  font-size:13px; color:var(--ink-3);
+}
+.scope b{color:var(--ink-2); font-weight:500}
+
+/* ---------- ответ ---------- */
+.answer{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:1px;
+  background:var(--rule); border:1px solid var(--rule); margin:34px 0 0}
+.fig{background:var(--surface); padding:22px 22px 20px}
+.fig-l{font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin:0 0 10px}
+.fig-n{font-size:42px; line-height:1; letter-spacing:-.01em;
+  font-family:"IBM Plex Mono",monospace; font-weight:500; font-variant-numeric:tabular-nums}
+.fig-n .cur{font-size:22px; color:var(--ink-3); margin-left:3px}
+.fig-s{font-size:13.5px; color:var(--ink-3); margin:9px 0 0; line-height:1.45}
+.fig.hi .fig-n{color:var(--teal)}
+
+section{padding:52px 0 0}
+.note{
+  border-left:3px solid var(--rust); background:var(--rust-soft);
+  padding:14px 18px; margin:20px 0; font-size:15px; max-width:66ch;
+}
+.note b{font-weight:600}
+
+/* ---------- графики ---------- */
+figure{margin:26px 0 0}
+figcaption{font-size:13.5px; color:var(--ink-3); margin:12px 0 0; max-width:66ch}
+.chart-box{background:var(--surface); border:1px solid var(--rule); padding:20px 18px 14px; overflow-x:auto}
+.legend{display:flex; gap:20px; margin:0 0 14px; font-size:13.5px; color:var(--ink-2); flex-wrap:wrap}
+.legend span{display:inline-flex; align-items:center; gap:7px}
+.sw{width:11px; height:11px; border-radius:50%; display:inline-block}
+svg{display:block; max-width:100%}
+svg text{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+
+/* ---------- таблица ---------- */
+.tbl-wrap{background:var(--surface); border:1px solid var(--rule); margin:24px 0 0; overflow-x:auto; max-height:640px; overflow-y:auto}
+table{border-collapse:collapse; width:100%; font-size:14px; min-width:820px}
+thead th{
+  position:sticky; top:0; z-index:2; background:var(--surface-2);
+  text-align:left; padding:11px 13px; font-weight:600; font-size:12.5px;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ink-2);
+  border-bottom:1px solid var(--rule); cursor:pointer; white-space:nowrap;
+}
+thead th:hover{color:var(--ink)}
+thead th.num{text-align:right}
+thead th .ar{color:var(--teal); font-size:11px}
+tbody td{padding:9px 13px; border-bottom:1px solid var(--rule-2); vertical-align:baseline}
+td.num{text-align:right}
+tbody tr.srv{cursor:pointer}
+tbody tr.srv:hover{background:var(--surface-2)}
+.sname{font-weight:500; white-space:nowrap}
+.dot{width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:7px; background:var(--teal)}
+.tier{font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:2px; white-space:nowrap}
+.tier.top{background:var(--teal-soft); color:var(--teal)}
+.tier.mid{background:var(--surface-2); color:var(--ink-3)}
+.tier.low{background:var(--rust-soft); color:var(--rust)}
+.tier.avoid{background:var(--rust-soft); color:var(--crit); font-weight:600}
+tr.band td{background:var(--surface-2); padding:0}
+.band-in{padding:12px 16px 15px}
+.band-t{font-size:12.5px; color:var(--ink-3); margin:0 0 9px; letter-spacing:.04em; text-transform:uppercase}
+.band-g{display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:1px; background:var(--rule-2)}
+.lot{background:var(--surface); padding:9px 11px; font-size:13px; display:flex; justify-content:space-between; gap:10px; align-items:baseline}
+.lot .u{color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lot .p{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-weight:500; white-space:nowrap}
+.lot .m{color:var(--ink-3); font-size:12px; white-space:nowrap}
+
+/* ---------- метод ---------- */
+.method{display:grid; grid-template-columns:repeat(auto-fit,minmax(268px,1fr)); gap:26px; margin:22px 0 0}
+.method h3{margin-bottom:6px}
+.method p{font-size:14.5px; color:var(--ink-2); margin:0 0 10px}
+footer{margin:54px 0 0; padding:22px 0 0; border-top:1px solid var(--rule); font-size:13px; color:var(--ink-3)}
+
+.tip{
+  position:fixed; pointer-events:none; opacity:0; transition:opacity .11s;
+  background:var(--ink); color:var(--ground); padding:7px 10px; font-size:12.5px;
+  font-family:"IBM Plex Mono",monospace; line-height:1.5; z-index:50; white-space:nowrap;
+  box-shadow:var(--shadow);
+}
+.tip.on{opacity:1}
+:focus-visible{outline:2px solid var(--teal); outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:620px){
+  .wrap{padding:0 16px 64px}
+  header{padding:36px 0 26px}
+  .fig-n{font-size:34px}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">FunPay · вирты Black Russia · chips/186</p>
+  <h1>Биржа виртов Black&nbsp;Russia</h1>
+  <p class="lede">Полный разбор биржи: сколько стоит миллион виртов, на каком сервере выгоднее выставляться и почему средняя цена вводит продавца в заблуждение.</p>
+  <div class="scope" id="scope"></div>
+</header>
+
+<div class="answer" id="answer"></div>
+
+<section>
+  <h2>Средняя цена обманывает продавца</h2>
+  <p>Покупатель открывает биржу с сортировкой по возрастанию цены и видит сначала самые дешёвые лоты. Значит, продают не по средней и не по медиане, а по цене в нижней части списка — я беру для этого 25-й перцентиль.</p>
+  <p>Но и он занижен. Дешёвый низ списка держат в основном продавцы <b>офлайн</b>, которые сделку прямо сейчас не проведут, а у покупателя есть переключатель «только продавцы онлайн». Если вы в сети, вы конкурируете не с ними.</p>
+  <div class="note" id="premNote"></div>
+  <figure>
+    <div class="chart-box">
+      <div class="legend">
+        <span><i class="sw" style="background:var(--rust)"></i>все лоты сервера</span>
+        <span><i class="sw" style="background:var(--teal)"></i>только продавцы онлайн</span>
+      </div>
+      <div id="dumbbell"></div>
+    </div>
+    <figcaption>Конкурентная цена (25-й перцентиль) на 14 лучших серверах. Разрыв между точками — это надбавка, которую получает продавец просто за то, что находится в сети.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Плато, а не пьедестал</h2>
+  <p>Выбор «лучшего» сервера почти ничего не решает: подавляющее большинство серверов лежит в узкой полосе. Разброс между лидером и серединой меньше, чем дневное колебание рынка, — за три замера подряд лидер менялся.</p>
+  <p>Значение имеет обратное: <b>не попасть в аутсайдеры</b>. Разница между плато и дном — уже десятки процентов.</p>
+  <figure>
+    <div class="chart-box"><div id="ranked"></div></div>
+    <figcaption id="rankedCap"></figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Все серверы</h2>
+  <p>Нажмите на строку, чтобы раскрыть конкурентную полосу сервера — десять самых дешёвых лотов среди продавцов онлайн с их минимальным заказом. Заголовки столбцов сортируют таблицу.</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th data-k="s">Сервер</th>
+        <th data-k="tier">Группа</th>
+        <th class="num" data-k="po">Цена онлайн</th>
+        <th class="num" data-k="p25">Цена со всеми</th>
+        <th class="num" data-k="med">Медиана</th>
+        <th class="num" data-k="mo">Мин. заказ</th>
+        <th class="num" data-k="n">Лотов</th>
+        <th class="num" data-k="on">Онлайн</th>
+        <th class="num" data-k="sup">Предложение</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Как это посчитано</h2>
+  <div class="method">
+    <div>
+      <h3>Что собрано</h3>
+      <p id="mScope"></p>
+      <p>Цены сняты в рублях: без этого биржа отдаёт прайс в долларах.</p>
+    </div>
+    <div>
+      <h3>Что отброшено</h3>
+      <p id="mJunk"></p>
+      <p>Это лоты с ценой в разы выше рынка сервера, обычно с нулём отзывов. Купить по ним нельзя, а среднее они завышают в полтора раза.</p>
+    </div>
+    <div>
+      <h3>Чего здесь нет</h3>
+      <p>Спроса. FunPay не показывает состоявшиеся продажи, поэтому «лучший сервер» опирается на цену и активность продавцов — это предложение, а не спрос.</p>
+      <p id="mCards"></p>
+    </div>
+  </div>
+  <div class="note">Снимок рынка на один момент времени. Цены и статусы продавцов меняются в течение дня — перед выставлением лота пересчитайте.</div>
+</section>
+
+<footer id="foot"></footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const DATA = /*__DATA__*/;
+const M = DATA.meta, R = DATA.rows;
+const rub = v => v == null ? "—" : v.toFixed(2);
+const spc = v => v.toLocaleString("ru-RU").replace(/ /g, " ");
+
+/* ---------- шапка и ответ ---------- */
+document.getElementById("scope").innerHTML = [
+  ["Лотов разобрано", spc(M.lots)], ["Серверов", M.servers],
+  ["Карточек прочитано", spc(M.cards)], ["Снято", M.ts],
+].map(([k, v]) => `<span>${k}: <b>${v}</b></span>`).join("");
+
+document.getElementById("answer").innerHTML = [
+  ["Средняя за 1 млн", M.mean, "₽", `Медиана ${rub(M.median)} ₽. Витринная цифра — по ней не продают.`, false],
+  ["Реальная цена онлайн", M.bestPo, "₽", `25-й перцентиль на лидере (${M.best}). Столько получает продавец в сети.`, true],
+  ["Надбавка за онлайн", M.prem, "₽", "Медианный разрыв по серверам между ценой в сети и ценой со всеми лотами.", false],
+  ["Разброс по серверам", M.poHi - M.poLo, "₽", `От ${rub(M.poLo)} до ${rub(M.poHi)} ₽ — весь выбор сервера стоит столько.`, false],
+].map(([l, n, c, s, hi]) => `<div class="fig${hi ? " hi" : ""}">
+  <p class="fig-l">${l}</p>
+  <p class="fig-n">${rub(n)}<span class="cur">${c}</span></p>
+  <p class="fig-s">${s}</p></div>`).join("");
+
+document.getElementById("premNote").innerHTML =
+  `Быть офлайн стоит примерно <b>${rub(M.prem)} ₽ с каждого миллиона</b> — это медианный разрыв по 92 серверам. ` +
+  `На бирже целиком средняя среди онлайн-продавцов ${rub(M.meanOn)} ₽ против ${rub(M.mean)} ₽ со всеми лотами.`;
+
+document.getElementById("mScope").textContent =
+  `${spc(M.lots)} лотов на ${M.servers} серверах; ${spc(M.used)} пошли в расчёт цены. Дополнительно открыто ${spc(M.cards)} карточек офферов — по десять самых дешёвых онлайн-лотов на каждом сервере, потому что минимальный заказ виден только внутри карточки.`;
+document.getElementById("mJunk").textContent =
+  `Отсеяно ${spc(M.lots - M.used)} лотов-заглушек — это ${((M.lots - M.used) / M.lots * 100).toFixed(1)}% списка.`;
+document.getElementById("mCards").textContent =
+  `Минимальный заказ прочитан у ${spc(M.cardsOk)} карточек из ${spc(M.cards)}: остальные не открылись из-за сетевых сбоев. Пропуски не смещены по цене, у всех ${M.servers} серверов данные есть.`;
+document.getElementById("foot").textContent =
+  `Источник: funpay.com/chips/186 — вирты Black Russia (Mobile, RP). Снимок ${M.ts}. Цены за 1 кк = 1 000 000 виртов.`;
+
+/* ---------- подсказка ---------- */
+const tip = document.getElementById("tip");
+const showTip = (e, html) => {
+  tip.innerHTML = html; tip.classList.add("on");
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - r.width - 8) + "px";
+  tip.style.top = Math.max(8, e.clientY - r.height - 12) + "px";
+};
+const hideTip = () => tip.classList.remove("on");
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const el = (n, a = {}) => {
+  const x = document.createElementNS(SVGNS, n);
+  for (const k in a) x.setAttribute(k, a[k]);
+  return x;
+};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------- график 1: парные точки ---------- */
+function dumbbell() {
+  const host = document.getElementById("dumbbell");
+  host.textContent = "";
+  const d = R.filter(r => r.po).slice(0, 14);
+  const rowH = 27, padT = 24, padB = 40, padL = 128, padR = 54;
+  const W = 860, H = padT + d.length * rowH + padB;
+  const lo = 60, hi = 100;
+  const x = v => padL + (v - lo) / (hi - lo) * (W - padL - padR);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
+  svg.appendChild(el("title")).textContent = "Конкурентная цена за 1 кк на 14 лучших серверах";
+
+  for (let v = lo; v <= hi; v += 10) {
+    svg.appendChild(el("line", { x1: x(v), x2: x(v), y1: padT - 8, y2: H - padB + 4,
+      stroke: css("--rule"), "stroke-width": 1 }));
+    const t = el("text", { x: x(v), y: H - padB + 20, fill: css("--ink-3"),
+      "font-size": 11.5, "text-anchor": "middle" });
+    t.textContent = v + (v === hi ? " ₽" : "");
+    svg.appendChild(t);
+  }
+  d.forEach((r, i) => {
+    const y = padT + i * rowH + rowH / 2;
+    const nm = el("text", { x: padL - 14, y: y + 4, fill: css("--ink-2"),
+      "font-size": 12.5, "text-anchor": "end" });
+    nm.textContent = r.s;
+    svg.appendChild(nm);
+    svg.appendChild(el("line", { x1: x(r.p25), x2: x(r.po), y1: y, y2: y,
+      stroke: css("--rule"), "stroke-width": 2 }));
+    [[r.p25, css("--rust"), "все лоты"], [r.po, css("--teal"), "только онлайн"]].forEach(([v, c, lab]) => {
+      const g = el("circle", { cx: x(v), cy: y, r: 5.5, fill: c,
+        stroke: css("--surface"), "stroke-width": 2 });
+      g.addEventListener("mousemove", e => showTip(e, `${r.s}<br>${lab}: ${rub(v)} ₽`));
+      g.addEventListener("mouseleave", hideTip);
+      svg.appendChild(g);
+    });
+    const vl = el("text", { x: x(r.po) + 12, y: y + 4, fill: css("--teal"),
+      "font-size": 12, "font-weight": 500 });
+    vl.textContent = rub(r.po);
+    svg.appendChild(vl);
+  });
+  host.appendChild(svg);
+}
+
+/* ---------- график 2: плато ---------- */
+function ranked() {
+  const host = document.getElementById("ranked");
+  host.textContent = "";
+  const d = R.filter(r => r.po).slice().sort((a, b) => b.po - a.po);
+  // Правое поле держим широким: подпись худшего сервера уходит туда с
+  // выноской, иначе она ложится поверх соседних столбцов.
+  const padT = 22, padB = 52, padL = 46, padR = 132;
+  const W = 860, H = 300;
+  const bw = (W - padL - padR) / d.length;
+  const y = v => H - padB - v / 100 * (H - padT - padB);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
+  svg.appendChild(el("title")).textContent = "Конкурентная цена онлайн по всем серверам, от лучшего к худшему";
+
+  for (let v = 0; v <= 100; v += 25) {
+    svg.appendChild(el("line", { x1: padL - 6, x2: W - padR, y1: y(v), y2: y(v),
+      stroke: css("--rule"), "stroke-width": 1 }));
+    const t = el("text", { x: padL - 11, y: y(v) + 4, fill: css("--ink-3"),
+      "font-size": 11.5, "text-anchor": "end" });
+    t.textContent = v;
+    svg.appendChild(t);
+  }
+  d.forEach((r, i) => {
+    const bx = padL + i * bw;
+    const b = el("rect", { x: bx + 0.6, y: y(r.po), width: Math.max(bw - 1.6, 1),
+      height: y(0) - y(r.po), fill: i < 14 ? css("--teal") : css("--ink-3"), rx: 1 });
+    b.addEventListener("mousemove", e => showTip(e,
+      `${r.s}<br>онлайн: ${rub(r.po)} ₽<br>со всеми: ${rub(r.p25)} ₽<br>место ${i + 1} из ${d.length}`));
+    b.addEventListener("mouseleave", hideTip);
+    svg.appendChild(b);
+  });
+  // Лидер подписывается над своим столбцом — сверху есть место до 100.
+  const first = d[0], fx = padL + bw / 2;
+  const ft = el("text", { x: fx + 4, y: y(first.po) - 9, fill: css("--ink-2"),
+    "font-size": 11.5 });
+  ft.textContent = `${first.s} · ${rub(first.po)} ₽`;
+  svg.appendChild(ft);
+
+  // Худший — в правое поле с выноской: над ним столбцы выше, места нет.
+  const last = d[d.length - 1], lx = padL + (d.length - 1) * bw + bw / 2;
+  svg.appendChild(el("line", { x1: lx, x2: W - padR + 12, y1: y(last.po), y2: y(last.po),
+    stroke: css("--ink-3"), "stroke-width": 1, "stroke-dasharray": "2 3" }));
+  const lt = el("text", { x: W - padR + 18, y: y(last.po) + 4, fill: css("--ink-2"),
+    "font-size": 11.5 });
+  lt.textContent = `${last.s} · ${rub(last.po)} ₽`;
+  svg.appendChild(lt);
+  const ax = el("text", { x: padL, y: H - 16, fill: css("--ink-3"), "font-size": 11.5 });
+  ax.textContent = `${d.length} серверов, отсортированы по цене · ось: ₽ за 1 кк`;
+  svg.appendChild(ax);
+  host.appendChild(svg);
+
+  const rio = R.find(r => !r.po);
+  document.getElementById("rankedCap").innerHTML =
+    `Каждый столбец — сервер. Бирюзовым выделены 14 серверов в пределах 5% от лидера. ` +
+    (rio ? `Сервер ${rio.s} в график не попал: онлайн-продавцов там меньше десяти, а по всем лотам его цена ${rub(rio.p25)} ₽ — на порядок ниже рынка.` : "");
+}
+
+/* ---------- таблица ---------- */
+const tierOf = (r, best) => {
+  if (!r.po) return ["avoid", "нет данных"];
+  if (r.po >= best * 0.95) return ["top", "плато"];
+  if (r.po >= best * 0.85) return ["mid", "середина"];
+  if (r.po >= best * 0.75) return ["low", "ниже рынка"];
+  return ["avoid", "избегать"];
+};
+const best = Math.max(...R.filter(r => r.po).map(r => r.po));
+let sortK = "po", sortDir = -1;
+
+function draw() {
+  const tb = document.getElementById("tb");
+  tb.textContent = "";
+  const rows = R.slice().sort((a, b) => {
+    if (sortK === "s") return a.s.localeCompare(b.s, "ru") * sortDir;
+    if (sortK === "tier") return ((a.po || 0) - (b.po || 0)) * sortDir;
+    return ((a[sortK] ?? -1) - (b[sortK] ?? -1)) * sortDir;
+  });
+  rows.forEach(r => {
+    const [cls, lab] = tierOf(r, best);
+    const tr = document.createElement("tr");
+    tr.className = "srv"; tr.tabIndex = 0;
+    tr.innerHTML =
+      `<td class="sname"><i class="dot" style="background:${r.po ? "var(--teal)" : "var(--ink-3)"}"></i>${r.s}</td>` +
+      `<td><span class="tier ${cls}">${lab}</span></td>` +
+      `<td class="num" style="color:var(--teal);font-weight:500">${rub(r.po)}</td>` +
+      `<td class="num">${rub(r.p25)}</td><td class="num">${rub(r.med)}</td>` +
+      `<td class="num">${r.mo ? r.mo + " кк" : "—"}</td>` +
+      `<td class="num">${r.n}</td><td class="num">${r.on}</td>` +
+      `<td class="num">${spc(r.sup)} кк</td>`;
+    const band = document.createElement("tr");
+    band.className = "band"; band.hidden = true;
+    band.innerHTML = `<td colspan="9"><div class="band-in">
+      <p class="band-t">Конкурентная полоса · минимальный заказ от ${r.lo ?? "?"} до ${r.hi ?? "?"} кк</p>
+      <div class="band-g">${r.band.map(b => `<div class="lot">
+        <span class="u">${b.u || "—"}<br><span class="m">${b.a} кк · ${b.r} отз${b.m ? " · мин " + b.m + " кк" : ""}</span></span>
+        <span class="p">${b.p.toFixed(2)} ₽</span></div>`).join("")}</div></div></td>`;
+    const toggle = () => { band.hidden = !band.hidden; };
+    tr.addEventListener("click", toggle);
+    tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+    tb.append(tr, band);
+  });
+  document.querySelectorAll("thead th").forEach(th => {
+    const on = th.dataset.k === sortK;
+    th.innerHTML = th.textContent.replace(/[ ▼▲]+$/, "") + (on ? ` <span class="ar">${sortDir < 0 ? "▼" : "▲"}</span>` : "");
+  });
+}
+document.querySelectorAll("thead th").forEach(th => th.addEventListener("click", () => {
+  const k = th.dataset.k;
+  if (k === sortK) sortDir *= -1; else { sortK = k; sortDir = k === "s" ? 1 : -1; }
+  draw();
+}));
+
+dumbbell(); ranked(); draw();
+matchMedia("(prefers-color-scheme:dark)").addEventListener("change", () => { dumbbell(); ranked(); });
+</script>

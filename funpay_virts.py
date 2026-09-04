@@ -22,6 +22,7 @@ import concurrent.futures as futures
 import re
 import statistics
 import sys
+import time
 import urllib.error
 import urllib.request
 from collections import defaultdict
@@ -146,12 +147,22 @@ def server_stats(rows, min_lots=10):
     return stats
 
 
-def read_card(row):
-    """Условия сделки из карточки оффера: их нет в строке таблицы."""
-    try:
-        html = get(row["url"])
-    except (urllib.error.URLError, OSError) as exc:
-        return {**row, "min_order": None, "pay": [], "error": str(exc)[:60]}
+def read_card(row, attempts=4):
+    """Условия сделки из карточки оффера: их нет в строке таблицы.
+
+    Туннель агент-прокси под долгой нагрузкой изредка рвётся с
+    WRONG_VERSION_NUMBER — это сбой транспорта, а не отказ сайта, поэтому
+    повторяем с растущей паузой, иначе теряется до половины карточек.
+    """
+    html = None
+    for attempt in range(attempts):
+        try:
+            html = get(row["url"])
+            break
+        except (urllib.error.URLError, OSError) as exc:
+            if attempt == attempts - 1:
+                return {**row, "min_order": None, "pay": [], "error": str(exc)[:60]}
+            time.sleep(2 ** attempt)
     text = unescape(TAG_RE.sub("\n", html)).replace("\xa0", " ")
     mo = MIN_ORDER_RE.search(text)
     pays = []
@@ -163,7 +174,7 @@ def read_card(row):
             "pay": pays[:3], "error": None}
 
 
-def fetch_cards(rows, workers=5):
+def fetch_cards(rows, workers=4):
     with futures.ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(read_card, rows))
 
