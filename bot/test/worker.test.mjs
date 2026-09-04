@@ -7,28 +7,45 @@ const sent = [];
 
 globalThis.fetch = async (url, init) => {
   if (String(url).includes("api.telegram.org")) {
-    sent.push(JSON.parse(init.body));
+    // answerCallbackQuery ответом не является — в проверку берём только сообщения.
+    if (String(url).includes("/sendMessage")) sent.push(JSON.parse(init.body));
     return new Response("{}", { status: 200 });
   }
   return new Response(data, { status: 200 });          // подменяет DATA_URL
 };
 
 const env = { BOT_TOKEN: "x", DATA_URL: "https://example/data.json", WEBHOOK_SECRET: "s" };
-const ask = async text => {
+const post = async payload => {
   sent.length = 0;
-  const req = new Request("https://w/", {
+  await worker.fetch(new Request("https://w/", {
     method: "POST",
     headers: { "x-telegram-bot-api-secret-token": "s", "content-type": "application/json" },
-    body: JSON.stringify({ message: { chat: { id: 1 }, text } }),
-  });
-  await worker.fetch(req, env);
-  return sent[0]?.text ?? "(нет ответа)";
+    body: JSON.stringify(payload),
+  }), env);
+  return sent[0] ?? null;
+};
+const ask = async text => {
+  const m = await post({ message: { chat: { id: 1 }, text } });
+  if (!m) return "(нет ответа)";
+  const kb = m.reply_markup?.keyboard
+    ? "\n[меню: " + m.reply_markup.keyboard.flat().map(b => b.text).join(" | ") + "]"
+    : m.reply_markup?.inline_keyboard
+    ? "\n[кнопки: " + m.reply_markup.inline_keyboard.flat().map(b => b.text).join(" | ") + "]"
+    : "";
+  return m.text + kb;
+};
+const tap = async data => {
+  const m = await post({ callback_query: { id: "1", data, message: { chat: { id: 1 } } } });
+  return m ? m.text.split("\n").slice(0, 3).join("\n") : "(нет ответа)";
 };
 
-for (const cmd of ["/start", "/best", "/cheap", "/top", "/s blue", "/s 87", "/s зззз"]) {
+for (const cmd of ["/start", "📈 Где фармить", "💰 Где дешевле", "blue", "34", "80", "зззз"]) {
   const out = await ask(cmd);
   console.log(`\n===== ${cmd} =====\n${out}`);
 }
+
+console.log("\n===== нажатие кнопки s:42 =====\n" + await tap("s:42"));
+console.log("\n===== нажатие кнопки c:/cheap =====\n" + await tap("c:/cheap"));
 
 // Чужой запрос без секрета не должен обслуживаться.
 const bad = await worker.fetch(new Request("https://w/", {

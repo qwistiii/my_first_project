@@ -201,7 +201,10 @@ def read_min_order(url):
     except Exception:
         return False, None
     m = MIN_ORDER_RE.search(text)
-    return True, (num(m.group(1)) if m else None)
+    # Ноль означает «продавец минимум не выставил» — брать можно сколько
+    # угодно. Отличать от «карточку не прочитали» обязательно: иначе самые
+    # удобные продавцы выпадают из выдачи.
+    return True, (num(m.group(1)) if m else 0.0)
 
 
 def load_cache():
@@ -242,6 +245,7 @@ def price_stats(lots, checked):
     for l in live:
         mo = checked.get(l["url"])
         if l["reviews"] >= MIN_REVIEWS and mo is not None and mo <= MAX_MIN_ORDER_KK:
+            # mo == 0 — минимума нет вовсе, такой лот подходит всем
             trusted = {**l, "min_order": mo}
             break
     prices = [l["price"] for l in live]
@@ -271,9 +275,13 @@ def main():
     lots = drop_junk(parse_lots(fetch(FUNPAY_URL)))
     print(f"лотов после отсева заглушек: {len(lots)}", file=sys.stderr)
 
+    # Ключ — номер сервера: названия у биржи и у игры расходятся
+    # («Novosib» против «Novosibirsk», «Novgorod» против «N.Novgorod»).
     by_server = {}
     for l in lots:
-        by_server.setdefault(l["server"], []).append(l)
+        m = re.match(r"№\s*(\d+)", l["server"])
+        if m:
+            by_server.setdefault(int(m.group(1)), []).append(l)
 
     # Карточки читаем только у самых дешёвых онлайн-лотов каждого сервера:
     # именно среди них ищется и абсолютный минимум, и безопасный.
@@ -286,8 +294,7 @@ def main():
 
     out = []
     for srv in servers:
-        key = f'№{srv["num"]:02d} {srv["name"]}'
-        group = next((v for k, v in by_server.items() if k.lower() == key.lower()), None)
+        group = by_server.get(srv["num"])
         stats = price_stats(group, checked) if group else None
         live = online.get(srv["num"], {})
         row = {"num": srv["num"], "name": srv["name"],
