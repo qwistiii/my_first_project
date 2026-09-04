@@ -24,64 +24,92 @@ async function loadData(env) {
 }
 
 const esc = s => String(s).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+
+/** В колонке цены всегда два знака: иначе 61.1 и 65.99 не выстраиваются. */
 const rub = v => (v == null ? "—" : Number(v).toFixed(2));
 
-/** Возраст данных словами: «5 минут назад». Дату показываем всегда. */
+/** Заполненность словом — понятнее, чем проценты. */
+function fillWord(s) {
+  if (!s.online || !s.cap) return null;
+  const p = s.online / s.cap;
+  return p >= 1 ? "переполнен" : p >= 0.7 ? "людно"
+       : p >= 0.45 ? "средне" : p >= 0.25 ? "малолюдно" : "пусто";
+}
+
+/** Полоска заполненности: пять делений читаются быстрее числа. */
+function fillBar(s) {
+  if (!s.online || !s.cap) return "";
+  const n = Math.min(5, Math.max(1, Math.round((s.online / s.cap) * 5)));
+  return "▰".repeat(n) + "▱".repeat(5 - n);
+}
+
+const label = s => `${String(s.num).padStart(2, "0")} ${s.name}`;
+
+/** Дата сбора: короткой строкой, но всегда — иначе не понять, свежее ли это. */
 function freshness(iso) {
   const d = new Date(iso);
   const min = Math.round((Date.now() - d.getTime()) / 60000);
   const ago = min < 1 ? "только что" : min < 60 ? `${min} мин назад`
     : min < 1440 ? `${Math.round(min / 60)} ч назад` : `${Math.round(min / 1440)} дн назад`;
   const stamp = d.toLocaleString("ru-RU", {
-    timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit",
-    hour: "2-digit", minute: "2-digit",
+    timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit",
   });
-  const stale = min > 45 ? " ⚠️ данные устарели" : "";
-  return `<i>Обновлено ${stamp} МСК · ${ago}${stale}</i>`;
+  return `<i>${stamp} МСК · ${ago}${min > 45 ? " ⚠️ устарело" : ""}</i>`;
 }
 
-const fill = s => (s.online && s.cap ? Math.round((s.online / s.cap) * 100) : null);
+/* Списки идут моноширинным блоком: в обычном тексте строка не помещается в
+   ширину экрана и переносится посреди числа, отчего список выглядит кашей.
+   Колонки рассчитаны по самому длинному имени — «42 Makhachkala». */
+const NAME_W = 14;
 
-/** Одна строка списка: сервер, цена, онлайн. */
-function line(s, showIndex) {
-  const f = fill(s);
-  const bits = [`<b>№${String(s.num).padStart(2, "0")} ${esc(s.name)}</b>`];
-  bits.push(`${rub(s.safe ?? s.min)} ₽`);
-  if (s.online != null) bits.push(`${s.online} чел.${f ? ` (${f}%)` : ""}`);
-  if (showIndex && s.index) bits.push(`индекс ${s.index}`);
-  return bits.join(" · ");
+function table(rows) {
+  return `<pre>${rows.join("\n")}</pre>`;
 }
+
+const priceRow = s => `${label(s).padEnd(NAME_W)} ${rub(s.safe ?? s.min).padStart(5)} ₽`;
+const farmRow = s =>
+  `${label(s).padEnd(NAME_W)} ${rub(s.safe ?? s.min).padStart(5)} ${String(s.online).padStart(5)}`;
+const onlineRow = s => `${label(s).padEnd(NAME_W)} ${String(s.online).padStart(4)} ${fillBar(s)}`;
+
+// Шапки считаем по тем же ширинам, что и строки, иначе они разъезжаются.
+const HEAD_PRICE = `${"сервер".padEnd(NAME_W)} ${"цена".padStart(5)}`;
+const HEAD_FARM = `${"сервер".padEnd(NAME_W)} ${"цена".padStart(5)} ${"людей".padStart(5)}`;
+const HEAD_ONLINE = `${"сервер".padEnd(NAME_W)} ${"люди".padStart(4)}`;
 
 function cardFor(s, updated) {
-  const f = fill(s);
-  const rows = [
-    `<b>№${String(s.num).padStart(2, "0")} ${esc(s.name)}</b>`,
-    "",
-    `Игроков онлайн: <b>${s.online ?? "нет данных"}</b>${f ? ` из ${s.cap} (${f}%)` : ""}`,
-    `Продавцов в сети: ${s.sellers_online ?? "—"} · лотов ${s.lots ?? "—"}`,
-    "",
-    `<b>Самая низкая цена: ${rub(s.min)} ₽</b> за 1 кк`,
-    `   ${esc(s.min_seller || "—")}, отзывов ${s.min_reviews ?? 0}` +
-      (s.min_order ? `, минимум ${s.min_order} кк`
-       : s.min_order === 0 ? ", без минимума" : ""),
-  ];
+  const rows = [`<b>${esc(s.name)}</b>  <code>№${String(s.num).padStart(2, "0")}</code>`, ""];
+
+  if (s.online != null) {
+    rows.push(`${fillBar(s)}  <b>${s.online}</b> из ${s.cap} — ${fillWord(s)}`);
+  }
+  if (s.sellers_online != null) {
+    rows.push(`${s.sellers_online} продавцов в сети`);
+  }
+
+  const seller = (name, reviews, min) => {
+    const bits = [esc(name || "—")];
+    bits.push(reviews ? `${reviews} отз.` : "без отзывов");
+    if (min) bits.push(`от ${min} кк`);
+    else if (min === 0) bits.push("без минимума");
+    return bits.join(" · ");
+  };
+
+  rows.push("", `💰 <b>${rub(s.min)} ₽</b> — дешевле всех`,
+    `<i>${seller(s.min_seller, s.min_reviews, s.min_order)}</i>`);
+
   // Если верхняя строка списка недостижима, честнее сразу показать вторую
   // цену — и назвать настоящую причину, а не любую подвернувшуюся.
   if (s.safe != null && s.safe !== s.min) {
-    const why = (s.min_reviews ?? 0) < 1 ? "у того продавца нет отзывов"
-      : s.min_order == null ? "условия того лота прочитать не удалось"
+    const why = (s.min_reviews ?? 0) < 1 ? "у того нет отзывов"
+      : s.min_order == null ? "условия того лота не прочитались"
       : s.min_order > 0 ? `там минимум ${s.min_order} кк`
       : "тот лот не прошёл проверку";
-    rows.push(
-      "",
-      `<b>Низшая у проверенного: ${rub(s.safe)} ₽</b>`,
-      `   ${esc(s.safe_seller || "—")}, отзывов ${s.safe_reviews}` +
-        (s.safe_min_order ? `, минимум ${s.safe_min_order} кк`
-         : s.safe_min_order === 0 ? ", без минимума" : ""),
-      `   <i>Дешевле есть, но ${why}.</i>`
-    );
+    rows.push("", `✅ <b>${rub(s.safe)} ₽</b> — можно брать`,
+      `<i>${seller(s.safe_seller, s.safe_reviews, s.safe_min_order)}</i>`,
+      `<i>дешевле есть, но ${why}</i>`);
   }
-  rows.push("", `Медиана сервера: ${rub(s.median)} ₽`, "", freshness(updated));
+
+  rows.push("", freshness(updated));
   return rows.join("\n");
 }
 
@@ -130,14 +158,13 @@ const chunk = (arr, n) => arr.reduce(
 const HELP = [
   "<b>Вирты Black Russia</b>",
   "",
-  "Нажимайте кнопки внизу — или напишите название сервера,",
-  "например <code>blue</code> или <code>42</code>.",
+  "📈 <b>Где фармить</b> — людно и цена не худшая",
+  "💰 <b>Где дешевле</b> — выгоднее купить",
+  "👥 <b>Онлайн</b> — самые населённые",
   "",
-  "<b>📈 Где фармить</b> — где больше народу и цена не худшая",
-  "<b>💰 Где дешевле</b> — где выгоднее купить вирты",
-  "<b>👥 Онлайн</b> — самые населённые серверы",
+  "Или напишите сервер: <code>blue</code>, <code>42</code>",
   "",
-  "<i>Цены — за 1 кк (миллион виртов) на FunPay, онлайн — с сайта игры.</i>",
+  "<i>Цены за 1 кк с FunPay, онлайн — с сайта игры.</i>",
 ].join("\n");
 
 const BUTTON_COMMANDS = {
@@ -168,9 +195,10 @@ async function handle(text, env) {
     const list = all.filter(s => s.index).sort((a, b) => b.index - a.index).slice(0, 10);
     if (!list.length) return { text: "Пока нет данных с онлайном — сборщик ещё не отработал." };
     return {
-      text: ["<b>📈 Где выгоднее фармить</b>",
-        "<i>Считаю игроков × цену: высокая цена на пустом сервере бесполезна.</i>", "",
-        ...list.map((s, i) => `${i + 1}. ${line(s, true)}`), "", freshness(data.updated)].join("\n"),
+      text: ["📈 <b>Где выгоднее фармить</b>",
+        "<i>цена × игроки — дорого на пустом сервере бесполезно</i>",
+        table([HEAD_FARM, ...list.map(farmRow)]),
+        freshness(data.updated)].join("\n"),
       buttons: serverButtons(list),
     };
   }
@@ -178,9 +206,10 @@ async function handle(text, env) {
   if (cmd === "/cheap") {
     const list = priced.filter(s => s.safe != null).sort((a, b) => a.safe - b.safe).slice(0, 10);
     return {
-      text: ["<b>💰 Где дешевле купить</b>",
-        "<i>Цена у продавца с отзывами, у которого реально можно взять.</i>", "",
-        ...list.map((s, i) => `${i + 1}. ${line(s, false)}`), "", freshness(data.updated)].join("\n"),
+      text: ["💰 <b>Где дешевле купить</b>",
+        "<i>у продавца с отзывами, у которого реально можно взять</i>",
+        table([HEAD_PRICE, ...list.map(priceRow)]),
+        freshness(data.updated)].join("\n"),
       buttons: serverButtons(list),
     };
   }
@@ -189,8 +218,9 @@ async function handle(text, env) {
     const list = all.filter(s => s.online != null).sort((a, b) => b.online - a.online).slice(0, 10);
     if (!list.length) return { text: "Онлайн серверов сейчас недоступен." };
     return {
-      text: ["<b>👥 Самые населённые</b>", "",
-        ...list.map((s, i) => `${i + 1}. ${line(s, false)}`), "", freshness(data.updated)].join("\n"),
+      text: ["👥 <b>Самые населённые</b>",
+        table([HEAD_ONLINE, ...list.map(onlineRow)]),
+        freshness(data.updated)].join("\n"),
       buttons: serverButtons(list),
     };
   }
