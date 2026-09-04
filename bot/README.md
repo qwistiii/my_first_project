@@ -25,58 +25,50 @@ GitHub Actions (раз в 15 мин)          Cloudflare Worker
 | `/top` | Самые населённые серверы |
 | `/s blue`, `/s 42` | Карточка одного сервера |
 
-## Установка: четыре шага
+## Установка
 
-Программировать не нужно, всё делается мышкой. Терминал не понадобится.
+Разворачивает бота робот в GitHub Actions — в интерфейсе Cloudflare ничего
+искать и нажимать не нужно. От вас три значения.
 
-### Шаг 1. Репозиторий
+### 1. Ключ доступа к Cloudflare
 
-Сделайте репозиторий **публичным**: Settings → General → внизу Danger Zone →
-Change visibility. У публичных репозиториев минуты GitHub Actions не
-ограничены, у приватных лимит 2000 в месяц, и сбор каждые 15 минут в него не
-уложится.
+[dash.cloudflare.com](https://dash.cloudflare.com) → значок профиля справа
+вверху → **Profile** → вкладка **API Tokens** → **Create Token**.
 
-Код должен лежать в **ветке по умолчанию** (обычно `main`) — расписание
-Actions работает только в ней.
+В списке шаблонов найдите **Edit Cloudflare Workers** → **Use template** →
+внизу **Continue to summary** → **Create Token**.
 
-Откройте вкладку **Actions** и нажмите «I understand my workflows, go ahead
-and enable them». Затем **Сбор данных о серверах → Run workflow**, чтобы
-проверить первый запуск: в логе должно быть `онлайн: 91/91`.
+Ключ покажут **один раз** — скопируйте сразу.
 
-### Шаг 2. Бот в Telegram
+### 2. Номер аккаунта Cloudflare
 
-Напишите [@BotFather](https://t.me/BotFather) команду `/newbot`, придумайте имя.
-В ответ придёт токен вида `123456:AA...` — скопируйте его.
+На главной странице Workers & Pages, в блоке **Account details**, строка
+**Account ID**. Скопируйте.
 
-### Шаг 3. Cloudflare
+### 3. Токен бота
 
-Регистрация на [dash.cloudflare.com](https://dash.cloudflare.com) бесплатная,
-карта не нужна.
+От [@BotFather](https://t.me/BotFather): `/newbot` → имя → username,
+оканчивающийся на `bot`. Придёт строка вида `123456:AA...`.
 
-1. **Workers & Pages → Create → Worker**, имя, например, `br-virts-bot`, Deploy.
-2. **Edit code**: удалите содержимое и вставьте туда весь файл `bot/worker.js`.
-   Deploy.
-3. **Settings → Variables and Secrets** — добавьте три записи:
+### 4. Сложить это в GitHub
 
-| Имя | Тип | Значение |
-| --- | --- | --- |
-| `BOT_TOKEN` | Secret | токен из шага 2 |
-| `WEBHOOK_SECRET` | Secret | любая случайная строка, придумайте сами |
-| `DATA_URL` | Text | `https://raw.githubusercontent.com/ВАШ_ЛОГИН/ВАШ_РЕПОЗИТОРИЙ/main/data/servers.json` |
+В репозитории: **Settings → Secrets and variables → Actions →
+New repository secret**. Добавьте три штуки:
 
-4. Скопируйте адрес воркера сверху страницы — вида
-   `https://br-virts-bot.ваш-поддомен.workers.dev`.
+| Имя | Значение |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | из пункта 1 |
+| `CLOUDFLARE_ACCOUNT_ID` | из пункта 2 |
+| `BOT_TOKEN` | из пункта 3 |
 
-### Шаг 4. Связать бота с воркером
+Затем **Actions → «Развернуть бота на Cloudflare» → Run workflow**. Он сам
+создаст воркер, передаст ему ключи и подключит к Telegram. В логе последней
+строкой будет «Готово».
 
-В GitHub: **Settings → Secrets and variables → Actions → New repository secret**,
-добавьте три секрета — `BOT_TOKEN`, `WEBHOOK_SECRET` (те же значения, что в
-Cloudflare) и `WORKER_URL` (адрес из шага 3).
+Секрет вебхука заводить не нужно: он вычисляется из токена бота, одинаково
+на обеих сторонах.
 
-Затем **Actions → «Подключить бота к воркеру» → Run workflow**. Он сам пропишет
-вебхук. В логе должно быть `"ok":true`.
-
-Напишите боту `/start`.
+Дальше при любом изменении кода бота развёртывание повторяется само.
 
 ## Почему две цены, а не одна
 
