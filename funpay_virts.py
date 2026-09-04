@@ -123,20 +123,26 @@ def server_stats(rows, min_lots=10):
         if len(items) < min_lots:
             continue
         prices = [i["price"] for i in items]
+        online = [i["price"] for i in items if i["online"]]
         stats.append({
             "server": server,
             "items": items,
             "lots": len(items),
-            "online": sum(1 for i in items if i["online"]),
+            "online": len(online),
             "p10": quantile(prices, 10),
             "p25": quantile(prices, 25),
+            # Дешёвый хвост списка держат в основном офлайн-продавцы, а у
+            # покупателя есть фильтр «только онлайн». Кто сидит в сети,
+            # конкурирует с ценами заметно выше.
+            "p25_online": quantile(online, 25) if len(online) >= 10 else None,
             "median": statistics.median(prices),
             "mean": statistics.fmean(prices),
             "supply": sum(i["amount"] for i in items),
         })
-    # Ранжируем по конкурентной цене: медиана у серверов почти совпадает и
-    # ничего не различает, а p25 — то, за что реально уходят вирты.
-    stats.sort(key=lambda s: -s["p25"])
+    # Ранжируем по конкурентной цене среди онлайн-продавцов: медиана у
+    # серверов почти совпадает и ничего не различает, а p25 — то, за что
+    # вирты реально уходят.
+    stats.sort(key=lambda s: -(s["p25_online"] or s["p25"]))
     return stats
 
 
@@ -182,14 +188,15 @@ def main():
     print(f'Разобрано {len(rows)} лотов на {len(stats)} серверах; '
           f'в расчёт цены взято {kept}, отсеяно заглушек {len(rows) - kept}.\n')
 
-    head = (f'{"сервер":<20}{"лотов":>6}{"онлайн":>7}{"p10 ₽":>8}'
-            f'{"p25 ₽":>8}{"медиана":>9}{"предложение, кк":>17}')
+    head = (f'{"сервер":<20}{"лотов":>6}{"онлайн":>7}{"p25 все":>9}'
+            f'{"p25 онлайн":>12}{"медиана":>9}{"предложение, кк":>17}')
     print(head)
     print("-" * len(head))
     for s in stats[:args.top]:
         supply = f'{s["supply"]:,.0f}'.replace(",", " ")
-        print(f'{s["server"][:19]:<20}{s["lots"]:>6}{s["online"]:>7}{s["p10"]:>8.2f}'
-              f'{s["p25"]:>8.2f}{s["median"]:>9.2f}{supply:>17}')
+        po = f'{s["p25_online"]:.2f}' if s["p25_online"] else "-"
+        print(f'{s["server"][:19]:<20}{s["lots"]:>6}{s["online"]:>7}{s["p25"]:>9.2f}'
+              f'{po:>12}{s["median"]:>9.2f}{supply:>17}')
 
     worst = stats[-1]
     print(f'\nХудший из зачётных: {worst["server"]} — p25 {worst["p25"]:.2f} ₽')
@@ -197,7 +204,15 @@ def main():
     best = stats[0]
     allp = [r["price"] for s in stats for r in s["items"]]
     print(f'\n{"=" * 62}\nЛУЧШИЙ СЕРВЕР ДЛЯ ПРОДАЖИ: {best["server"]}')
-    print(f'  конкурентная цена (p25): {best["p25"]:.2f} ₽ за 1 кк')
+    if best["p25_online"]:
+        print(f'  конкурентная цена среди онлайн-продавцов: {best["p25_online"]:.2f} ₽ за 1 кк')
+    print(f'  конкурентная цена со всеми лотами (p25): {best["p25"]:.2f} ₽ за 1 кк')
+    # Лидер обычно опережает группу на считаные проценты — назвать один
+    # сервер «лучшим» без этой оговорки значит выдать шум за сигнал.
+    ref = best["p25_online"] or best["p25"]
+    near = [s for s in stats if (s["p25_online"] or s["p25"]) >= ref * 0.95]
+    print(f'  в пределах 5% от лидера ещё {len(near) - 1} серверов — '
+          f'выбор внутри этой группы почти не влияет на выручку')
     print(f'  средняя по серверу: {best["mean"]:.2f} ₽ | медиана: {best["median"]:.2f} ₽')
     print(f'  лотов {best["lots"]}, продавцов онлайн {best["online"]}')
     print(f'\nСредняя цена за 1 млн виртов по всей бирже: {statistics.fmean(allp):.2f} ₽')
