@@ -1,0 +1,17 @@
+# Настройки воркера для Cloudflare.
+#
+# Благодаря этому файлу код не нужно вставлять в редактор руками: Cloudflare
+# подключается к репозиторию и разворачивает бота сам, а при каждом изменении
+# кода обновляет его.
+#
+# Ключи (BOT_TOKEN и WEBHOOK_SECRET) сюда не пишутся — они задаются в панели
+# Cloudflare как Secret, чтобы не попасть в репозиторий.
+
+name = "br-virts-bot"
+main = "bot/worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Откуда воркер берёт данные. Файл лежит в этом же репозитории и обновляется
+# сборщиком каждые 15 минут.
+DATA_URL = "https://raw.githubusercontent.com/qwistiii/my_first_project/main/data/servers.json"
