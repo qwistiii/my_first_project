@@ -49,7 +49,11 @@ jobs:
         run: |
           # Секрет вебхука выводим из токена бота: так его не нужно нигде
           # заводить руками, а по самому секрету токен восстановить нельзя.
-          WEBHOOK_SECRET=$(printf '%s' "$BOT_TOKEN" | sha256sum | cut -c1-32)
+          # Соль меняет значение — прежнее засветилось в публичном логе.
+          WEBHOOK_SECRET=$(printf 'tg-webhook-v2:%s' "$BOT_TOKEN" | sha256sum | cut -c1-32)
+          # Обязательно до записи в GITHUB_ENV: иначе GitHub напечатает
+          # значение в заголовке следующего шага, а логи здесь публичные.
+          echo "::add-mask::$WEBHOOK_SECRET"
           echo "WEBHOOK_SECRET=$WEBHOOK_SECRET" >> "$GITHUB_ENV"
           printf '%s' "$BOT_TOKEN"       | npx --yes wrangler@3 secret put BOT_TOKEN
           printf '%s' "$WEBHOOK_SECRET"  | npx --yes wrangler@3 secret put WEBHOOK_SECRET
