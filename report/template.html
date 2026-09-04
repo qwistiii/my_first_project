@@ -169,8 +169,7 @@ footer{margin:54px 0 0; padding:22px 0 0; border-top:1px solid var(--rule); font
 <section>
   <h2>Плато, а не пьедестал</h2>
   <p>Выбор «лучшего» сервера почти ничего не решает: подавляющее большинство серверов лежит в узкой полосе. Разброс между лидером и серединой меньше, чем дневное колебание рынка, — за три замера подряд лидер менялся.</p>
-  <p>Значение имеет обратное: <b>не попасть в аутсайдеры</b>. Разница между плато и дном — уже десятки процентов.</p>
-  <p>И ещё одно: ценовой рейтинг сам по себе выбор сервера не решает — см. следующий раздел.</p>
+  <p>Но ценовой рейтинг сам по себе выбор сервера <b>не решает и даже вводит в заблуждение</b>: дешёвый конец этого графика — не аутсайдеры, а самые населённые серверы. Об этом следующий раздел.</p>
   <figure>
     <div class="chart-box"><div id="ranked"></div></div>
     <figcaption id="rankedCap"></figcaption>
@@ -178,24 +177,24 @@ footer{margin:54px 0 0; padding:22px 0 0; border-top:1px solid var(--rule); font
 </section>
 
 <section>
-  <h2>Цена против людности</h2>
-  <p>Высокая цена — не всегда хорошая новость. Она часто означает, что на сервере просто некому торговать, а фармить вирты там нечем и некогда.</p>
-  <p>Связь видна в данных: чем больше на сервере продавцов, тем ниже цена (корреляция <b id="corr"></b>). Два крайних случая — <b>№03 Blue</b>, самый оживлённый рынок биржи и почти худшая цена, и <b>№19 Gray</b>, лучшая цена при вдвое меньшей активности.</p>
-  <div class="note">Разброс цен между серверами — около 20%. Разница в скорости фарма между живым и полупустым сервером измеряется <b>разами</b>. Выручка равна скорости фарма, умноженной на цену, и первый множитель важнее — поэтому людность сервера перевешивает место в ценовом рейтинге.</div>
+  <h2>Дорогой сервер — это пустой сервер</h2>
+  <p>Игровой онлайн снят с сайта Black Russia и сведён с ценами по номеру сервера. Связь оказалась обратной и заметной: <b id="corr"></b> — чем больше на сервере живых игроков, тем дешевле там вирты. Логика простая: больше игроков — больше нафармленного вирта — больше предложения на бирже.</p>
+  <div class="note">Из этого следует вывод, обратный ценовому рейтингу: <b>высокая цена сама по себе — плохой признак</b>. Она означает, что вирты никто не фармит, потому что на сервере пусто. Продавцу нужна не лучшая цена, а лучшее произведение «скорость фарма × цена».</div>
   <figure>
     <div class="chart-box"><div id="scatter"></div></div>
-    <figcaption>Каждая точка — сервер. По горизонтали активность биржи, по вертикали цена онлайн. Осторожно с трактовкой: число лотов — это активность <b>продавцов</b>, а не игровой онлайн сервера, и заменять им людность нельзя.</figcaption>
+    <figcaption>Каждая точка — сервер. По горизонтали игровой онлайн, по вертикали цена за 1 кк. Подписаны крайние случаи и <b>№42 Makhachkala</b> — единственный сервер, который одновременно почти переполнен и держит цену из первой двадцатки.</figcaption>
   </figure>
-</section>
-
+  <p>Поэтому таблица ниже отсортирована по индексу «онлайн × цена», а не по цене. Столбец «игроков» — фактический онлайн, «заполнен» — доля от вместимости сервера в 1300 мест.</p>
 <section>
   <h2>Все серверы</h2>
-  <p>Нажмите на строку, чтобы раскрыть конкурентную полосу сервера — десять самых дешёвых лотов среди продавцов онлайн с их минимальным заказом. Заголовки столбцов сортируют таблицу.</p>
+  <p>Отсортировано по индексу «игроков × цена / 1000». Нажмите на строку, чтобы раскрыть конкурентную полосу сервера — десять самых дешёвых лотов среди продавцов онлайн с их минимальным заказом. Заголовки столбцов сортируют таблицу.</p>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
         <th data-k="s">Сервер</th>
         <th data-k="tier">Группа</th>
+        <th class="num" data-k="idx">Индекс</th>
+        <th class="num" data-k="go">Игроков</th>
         <th class="num" data-k="po">Цена онлайн</th>
         <th class="num" data-k="p25">Цена со всеми</th>
         <th class="num" data-k="med">Медиана</th>
@@ -215,7 +214,7 @@ footer{margin:54px 0 0; padding:22px 0 0; border-top:1px solid var(--rule); font
     <div>
       <h3>Что собрано</h3>
       <p id="mScope"></p>
-      <p>Цены сняты в рублях: без этого биржа отдаёт прайс в долларах.</p>
+      <p>Цены сняты в рублях: без этого биржа отдаёт прайс в долларах. Игровой онлайн — с blackrussia.online, снят браузером через защиту антиддоса и сведён с ценами по номеру сервера.</p>
     </div>
     <div>
       <h3>Что отброшено</h3>
@@ -224,7 +223,7 @@ footer{margin:54px 0 0; padding:22px 0 0; border-top:1px solid var(--rule); font
     </div>
     <div>
       <h3>Чего здесь нет</h3>
-      <p>Спроса. FunPay не показывает состоявшиеся продажи, поэтому «лучший сервер» опирается на цену и активность продавцов — это предложение, а не спрос.</p>
+      <p>Спроса и реальной скорости фарма. FunPay не показывает состоявшиеся продажи, а игровой онлайн — только прокси того, насколько живо на сервере: он не измеряет, сколько вирта вы намолотите за час.</p>
       <p id="mCards"></p>
     </div>
   </div>
@@ -248,13 +247,13 @@ document.getElementById("scope").innerHTML = [
 ].map(([k, v]) => `<span>${k}: <b>${v}</b></span>`).join("");
 
 document.getElementById("answer").innerHTML = [
-  ["Средняя за 1 млн", M.mean, "₽", `Медиана ${rub(M.median)} ₽. Витринная цифра — по ней не продают.`, false],
-  ["Ценовой максимум", M.bestPo, "₽", `25-й перцентиль на ${M.best} — лучшая цена биржи. Но высокая цена часто значит, что торговать там некому.`, true],
-  ["Надбавка за онлайн", M.prem, "₽", "Медианный разрыв по серверам между ценой в сети и ценой со всеми лотами.", false],
-  ["Разброс по серверам", M.poHi - M.poLo, "₽", `От ${rub(M.poLo)} до ${rub(M.poHi)} ₽ — весь выбор сервера стоит столько.`, false],
+  ["Средняя за 1 млн", rub(M.mean), "₽", `Медиана ${rub(M.median)} ₽. Витринная цифра — по ней не продают.`, false],
+  ["Лучший для фарма", M.bestGo, "чел.", `${M.best}: ${rub(M.bestPo)} ₽ при ${M.bestGo} игроков онлайн. Редкий случай, когда людно и цена в топе.`, true],
+  ["Ценовой максимум", rub(M.priceKingPo), "₽", `${M.priceKing} — лучшая цена биржи, но всего ${M.priceKingGo} игроков. Фармить нечего.`, false],
+  ["Надбавка за онлайн", rub(M.prem), "₽", "Столько теряет с каждого миллиона продавец, который висит офлайн.", false],
 ].map(([l, n, c, s, hi]) => `<div class="fig${hi ? " hi" : ""}">
   <p class="fig-l">${l}</p>
-  <p class="fig-n">${rub(n)}<span class="cur">${c}</span></p>
+  <p class="fig-n">${n}<span class="cur">${c}</span></p>
   <p class="fig-s">${s}</p></div>`).join("");
 
 document.getElementById("premNote").innerHTML =
@@ -392,11 +391,11 @@ function ranked() {
 function scatter() {
   const host = document.getElementById("scatter");
   host.textContent = "";
-  const d = R.filter(r => r.po);
-  const padT = 20, padB = 52, padL = 52, padR = 96;
+  const d = R.filter(r => r.po && r.go);
+  const padT = 20, padB = 52, padL = 52, padR = 118;
   const W = 860, H = 360;
-  const xs = d.map(r => r.n), ys = d.map(r => r.po);
-  const xLo = Math.floor(Math.min(...xs) / 10) * 10, xHi = Math.ceil(Math.max(...xs) / 10) * 10;
+  const xs = d.map(r => r.go), ys = d.map(r => r.po);
+  const xLo = 300, xHi = Math.ceil(Math.max(...xs) / 100) * 100;
   const yLo = Math.floor(Math.min(...ys) / 5) * 5, yHi = Math.ceil(Math.max(...ys) / 5) * 5;
   const X = v => padL + (v - xLo) / (xHi - xLo) * (W - padL - padR);
   const Y = v => H - padB - (v - yLo) / (yHi - yLo) * (H - padT - padB);
@@ -411,62 +410,64 @@ function scatter() {
     t.textContent = v;
     svg.appendChild(t);
   }
-  for (let v = xLo; v <= xHi; v += 20) {
+  for (let v = xLo; v <= xHi; v += 300) {
     const t = el("text", { x: X(v), y: H - padB + 20, fill: css("--ink-3"),
       "font-size": 11.5, "text-anchor": "middle" });
     t.textContent = v;
     svg.appendChild(t);
   }
   // Именованные ориентиры: два конца зависимости и сбалансированный вариант.
-  const marks = { "№03 Blue": "start", "№19 Gray": "end", "№08 Pink": "start" };
+  const marks = { "№42 Makhachkala": "end", "№19 Gray": "start", "№91 Astana": "end" };
   d.forEach(r => {
     const named = r.s in marks;
-    const c = el("circle", { cx: X(r.n), cy: Y(r.po), r: named ? 6.5 : 4,
+    const c = el("circle", { cx: X(r.go), cy: Y(r.po), r: named ? 6.5 : 4,
       fill: named ? css("--teal") : css("--ink-3"),
       "fill-opacity": named ? 1 : .5,
       stroke: css("--surface"), "stroke-width": 2 });
     c.addEventListener("mousemove", e => showTip(e,
-      `${r.s}<br>цена онлайн: ${rub(r.po)} ₽<br>лотов: ${r.n} · онлайн: ${r.on}`));
+      `${r.s}<br>цена: ${rub(r.po)} ₽<br>игроков: ${r.go} (${Math.round(r.go / r.cap * 100)}% от 1300)`));
     c.addEventListener("mouseleave", hideTip);
     svg.appendChild(c);
   });
   Object.entries(marks).forEach(([name, anchor]) => {
     const r = d.find(z => z.s === name);
     if (!r) return;
-    const t = el("text", { x: X(r.n) + (anchor === "end" ? -11 : 11), y: Y(r.po) + 4,
+    const t = el("text", { x: X(r.go) + (anchor === "end" ? -11 : 11), y: Y(r.po) + 4,
       fill: css("--ink-2"), "font-size": 12, "text-anchor": anchor });
-    t.textContent = `${r.s} · ${rub(r.po)} ₽`;
+    t.textContent = `${r.s} · ${r.go} чел.`;
     svg.appendChild(t);
   });
   const ax = el("text", { x: padL, y: H - 14, fill: css("--ink-3"), "font-size": 11.5 });
-  ax.textContent = "лотов на сервере · ось Y: ₽ за 1 кк среди продавцов онлайн";
+  ax.textContent = "игроков онлайн на сервере · ось Y: ₽ за 1 кк";
   svg.appendChild(ax);
   host.appendChild(svg);
 
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const my = ys.reduce((a, b) => a + b, 0) / ys.length;
-  const cov = d.reduce((s, r) => s + (r.n - mx) * (r.po - my), 0);
+  const cov = d.reduce((s, r) => s + (r.go - mx) * (r.po - my), 0);
   const den = Math.sqrt(xs.reduce((s, v) => s + (v - mx) ** 2, 0) * ys.reduce((s, v) => s + (v - my) ** 2, 0));
   document.getElementById("corr").textContent = (cov / den).toFixed(2).replace("-", "−");
 }
 
 /* ---------- таблица ---------- */
+// Группы по связке «онлайн × цена», а не по одной цене: по цене верхушку
+// занимают полупустые серверы, на которых нечего фармить.
 const tierOf = (r, best) => {
-  if (!r.po) return ["avoid", "нет данных"];
-  if (r.po >= best * 0.95) return ["top", "плато"];
-  if (r.po >= best * 0.85) return ["mid", "середина"];
-  if (r.po >= best * 0.75) return ["low", "ниже рынка"];
-  return ["avoid", "избегать"];
+  if (!r.idx) return ["avoid", "нет данных"];
+  if (r.idx >= best * 0.8) return ["top", "фарм + цена"];
+  if (r.idx >= best * 0.6) return ["mid", "рабочий"];
+  if (r.idx >= best * 0.45) return ["low", "слабый"];
+  return ["avoid", "пустой"];
 };
-const best = Math.max(...R.filter(r => r.po).map(r => r.po));
-let sortK = "po", sortDir = -1;
+const best = Math.max(...R.filter(r => r.idx).map(r => r.idx));
+let sortK = "idx", sortDir = -1;
 
 function draw() {
   const tb = document.getElementById("tb");
   tb.textContent = "";
   const rows = R.slice().sort((a, b) => {
     if (sortK === "s") return a.s.localeCompare(b.s, "ru") * sortDir;
-    if (sortK === "tier") return ((a.po || 0) - (b.po || 0)) * sortDir;
+    if (sortK === "tier") return ((a.idx || 0) - (b.idx || 0)) * sortDir;
     return ((a[sortK] ?? -1) - (b[sortK] ?? -1)) * sortDir;
   });
   rows.forEach(r => {
@@ -476,14 +477,16 @@ function draw() {
     tr.innerHTML =
       `<td class="sname"><i class="dot" style="background:${r.po ? "var(--teal)" : "var(--ink-3)"}"></i>${r.s}</td>` +
       `<td><span class="tier ${cls}">${lab}</span></td>` +
-      `<td class="num" style="color:var(--teal);font-weight:500">${rub(r.po)}</td>` +
+      `<td class="num" style="color:var(--teal);font-weight:500">${r.idx ?? "—"}</td>` +
+      `<td class="num">${r.go ?? "—"}${r.cap ? ` <span style="color:var(--ink-3)">${Math.round(r.go / r.cap * 100)}%</span>` : ""}</td>` +
+      `<td class="num">${rub(r.po)}</td>` +
       `<td class="num">${rub(r.p25)}</td><td class="num">${rub(r.med)}</td>` +
       `<td class="num">${r.mo ? r.mo + " кк" : "—"}</td>` +
       `<td class="num">${r.n}</td><td class="num">${r.on}</td>` +
       `<td class="num">${spc(r.sup)} кк</td>`;
     const band = document.createElement("tr");
     band.className = "band"; band.hidden = true;
-    band.innerHTML = `<td colspan="9"><div class="band-in">
+    band.innerHTML = `<td colspan="11"><div class="band-in">
       <p class="band-t">Конкурентная полоса · минимальный заказ от ${r.lo ?? "?"} до ${r.hi ?? "?"} кк</p>
       <div class="band-g">${r.band.map(b => `<div class="lot">
         <span class="u">${b.u || "—"}<br><span class="m">${b.a} кк · ${b.r} отз${b.m ? " · мин " + b.m + " кк" : ""}</span></span>
