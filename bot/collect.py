@@ -31,6 +31,10 @@ from html import unescape
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(HERE), "data", "servers.json")
+# Минимальный заказ у продавца почти не меняется, а читается он только из
+# карточки оффера — по одному запросу на лот. Без кеша это самая долгая часть
+# сбора и лишняя нагрузка на FunPay при каждом запуске.
+CACHE = os.path.join(os.path.dirname(HERE), "data", "min_orders.json")
 
 BR_URL = "https://blackrussia.online/"
 FUNPAY_URL = "https://funpay.com/chips/186/"
@@ -186,13 +190,37 @@ def parse_lots(html):
 
 
 def read_min_order(url):
-    """Минимальный заказ виден только внутри карточки оффера, не в списке."""
+    """Минимальный заказ виден только внутри карточки оффера, не в списке.
+
+    Возвращает (удалось, значение). Неудачу от «минимум не указан» надо
+    различать: первую в кеш класть нельзя, иначе сетевой сбой запомнится
+    навсегда.
+    """
     try:
         text = unescape(TAG_RE.sub("\n", fetch(url, timeout=30, attempts=2)))
     except Exception:
-        return None
+        return False, None
     m = MIN_ORDER_RE.search(text)
-    return num(m.group(1)) if m else None
+    return True, (num(m.group(1)) if m else None)
+
+
+def load_cache():
+    try:
+        return json.load(open(CACHE, encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def read_min_orders(urls, cache, workers=4):
+    """Читает только те карточки, которых ещё нет в кеше."""
+    fresh = [u for u in urls if u not in cache]
+    print(f"карточек в кеше: {len(urls) - len(fresh)}, к чтению: {len(fresh)}", file=sys.stderr)
+    if fresh:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for url, (ok, value) in zip(fresh, pool.map(read_min_order, fresh)):
+                if ok:
+                    cache[url] = value
+    return {u: cache.get(u) for u in urls}
 
 
 def drop_junk(lots):
@@ -253,9 +281,8 @@ def main():
     for group in by_server.values():
         live = sorted([l for l in group if l["online"]], key=lambda l: l["price"])
         to_check += [l["url"] for l in live[:6] if l["url"]]
-    print(f"карточек к чтению: {len(to_check)}", file=sys.stderr)
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        checked = dict(zip(to_check, pool.map(read_min_order, to_check)))
+    cache = load_cache()
+    checked = read_min_orders(to_check, cache)
 
     out = []
     for srv in servers:
@@ -282,6 +309,11 @@ def main():
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump(payload, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    # Из кеша выбрасываем лоты, которых больше нет в продаже, иначе он будет
+    # расти без конца.
+    alive = {u: v for u, v in cache.items() if u in set(to_check)}
+    json.dump(alive, open(CACHE, "w", encoding="utf-8"), ensure_ascii=False)
+    print(f"кеш карточек: {len(alive)} записей", file=sys.stderr)
     print(f"записано: {OUT} ({payload['priced']} серверов с ценой)", file=sys.stderr)
 
 
