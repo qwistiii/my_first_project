@@ -1,0 +1,60 @@
+name: Сбор данных о серверах
+
+on:
+  schedule:
+    # Каждые 15 минут. GitHub нередко запускает расписание с задержкой,
+    # поэтому бот всегда показывает фактическое время сбора, а не ожидаемое.
+    # Важно: расписание работает только в ветке по умолчанию.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# Один сбор за раз: параллельные запуски конфликтовали бы при коммите.
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить браузер
+        run: |
+          pip install --quiet playwright
+          playwright install --with-deps chromium
+
+      - name: Собрать онлайн и цены
+        run: python bot/collect.py
+
+      - name: Проверить, что данные осмысленные
+        run: |
+          python - <<'PY'
+          import json, sys
+          d = json.load(open("data/servers.json", encoding="utf-8"))
+          print(f"онлайн: {d['online_answered']}/{d['servers_total']}, цены: {d['priced']}")
+          # Пустой сбор не коммитим: лучше оставить прошлые данные с честной
+          # отметкой времени, чем подменить их нулями.
+          if d["priced"] == 0:
+              sys.exit("цены не собрались — файл не обновляем")
+          PY
+
+      - name: Закоммитить, если данные изменились
+        run: |
+          if git diff --quiet -- data/servers.json; then
+            echo "данные не изменились — коммит не нужен"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/servers.json
+          git commit -m "Данные серверов: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push

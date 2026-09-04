@@ -1,0 +1,457 @@
+[
+ {
+  "num": 1,
+  "name": "Red",
+  "host": "red.blackrussia.online"
+ },
+ {
+  "num": 2,
+  "name": "Green",
+  "host": "green.blackrussia.online"
+ },
+ {
+  "num": 3,
+  "name": "Blue",
+  "host": "blue.blackrussia.online"
+ },
+ {
+  "num": 4,
+  "name": "Yellow",
+  "host": "yellow.blackrussia.online"
+ },
+ {
+  "num": 5,
+  "name": "Orange",
+  "host": "orange.blackrussia.online"
+ },
+ {
+  "num": 6,
+  "name": "Purple",
+  "host": "purple.blackrussia.online"
+ },
+ {
+  "num": 7,
+  "name": "Lime",
+  "host": "lime.blackrussia.online"
+ },
+ {
+  "num": 8,
+  "name": "Pink",
+  "host": "pink.blackrussia.online"
+ },
+ {
+  "num": 9,
+  "name": "Cherry",
+  "host": "cherry.blackrussia.online"
+ },
+ {
+  "num": 10,
+  "name": "Black",
+  "host": "black.blackrussia.online"
+ },
+ {
+  "num": 11,
+  "name": "Indigo",
+  "host": "indigo.blackrussia.online"
+ },
+ {
+  "num": 12,
+  "name": "White",
+  "host": "white.blackrussia.online"
+ },
+ {
+  "num": 13,
+  "name": "Magenta",
+  "host": "magenta.blackrussia.online"
+ },
+ {
+  "num": 14,
+  "name": "Crimson",
+  "host": "crimson.blackrussia.online"
+ },
+ {
+  "num": 15,
+  "name": "Gold",
+  "host": "gold.blackrussia.online"
+ },
+ {
+  "num": 16,
+  "name": "Azure",
+  "host": "azure.blackrussia.online"
+ },
+ {
+  "num": 17,
+  "name": "Platinum",
+  "host": "platinum.blackrussia.online"
+ },
+ {
+  "num": 18,
+  "name": "Aqua",
+  "host": "aqua.blackrussia.online"
+ },
+ {
+  "num": 19,
+  "name": "Gray",
+  "host": "gray.blackrussia.online"
+ },
+ {
+  "num": 20,
+  "name": "Ice",
+  "host": "ice.blackrussia.online"
+ },
+ {
+  "num": 21,
+  "name": "Chilli",
+  "host": "chilli.blackrussia.online"
+ },
+ {
+  "num": 22,
+  "name": "Choco",
+  "host": "choco.blackrussia.online"
+ },
+ {
+  "num": 23,
+  "name": "Moscow",
+  "host": "moscow.blackrussia.online"
+ },
+ {
+  "num": 24,
+  "name": "Spb",
+  "host": "spb.blackrussia.online"
+ },
+ {
+  "num": 25,
+  "name": "Ufa",
+  "host": "ufa.blackrussia.online"
+ },
+ {
+  "num": 26,
+  "name": "Sochi",
+  "host": "sochi.blackrussia.online"
+ },
+ {
+  "num": 27,
+  "name": "Kazan",
+  "host": "kazan.blackrussia.online"
+ },
+ {
+  "num": 28,
+  "name": "Samara",
+  "host": "samara.blackrussia.online"
+ },
+ {
+  "num": 29,
+  "name": "Rostov",
+  "host": "rostov.blackrussia.online"
+ },
+ {
+  "num": 30,
+  "name": "Anapa",
+  "host": "anapa.blackrussia.online"
+ },
+ {
+  "num": 31,
+  "name": "Ekb",
+  "host": "ekb.blackrussia.online"
+ },
+ {
+  "num": 32,
+  "name": "Krasnodar",
+  "host": "krasnodar.blackrussia.online"
+ },
+ {
+  "num": 33,
+  "name": "Arzamas",
+  "host": "arzamas.blackrussia.online"
+ },
+ {
+  "num": 34,
+  "name": "Novosib",
+  "host": "nsk.blackrussia.online"
+ },
+ {
+  "num": 35,
+  "name": "Grozny",
+  "host": "grozny.blackrussia.online"
+ },
+ {
+  "num": 36,
+  "name": "Saratov",
+  "host": "saratov.blackrussia.online"
+ },
+ {
+  "num": 37,
+  "name": "Omsk",
+  "host": "omsk.blackrussia.online"
+ },
+ {
+  "num": 38,
+  "name": "Irkutsk",
+  "host": "irkutsk.blackrussia.online"
+ },
+ {
+  "num": 39,
+  "name": "Volgograd",
+  "host": "volgograd.blackrussia.online"
+ },
+ {
+  "num": 40,
+  "name": "Voronezh",
+  "host": "voronezh.blackrussia.online"
+ },
+ {
+  "num": 41,
+  "name": "Belgorod",
+  "host": "belgorod.blackrussia.online"
+ },
+ {
+  "num": 42,
+  "name": "Makhachkala",
+  "host": "makhachkala.blackrussia.online"
+ },
+ {
+  "num": 43,
+  "name": "Vladikavkaz",
+  "host": "vladikavkaz.blackrussia.online"
+ },
+ {
+  "num": 44,
+  "name": "Vladivostok",
+  "host": "vladivostok.blackrussia.online"
+ },
+ {
+  "num": 45,
+  "name": "Kaliningrad",
+  "host": "kaliningrad.blackrussia.online"
+ },
+ {
+  "num": 46,
+  "name": "Chelyabinsk",
+  "host": "chelyabinsk.blackrussia.online"
+ },
+ {
+  "num": 47,
+  "name": "Krasnoyarsk",
+  "host": "krasnoyarsk.blackrussia.online"
+ },
+ {
+  "num": 48,
+  "name": "Cheboksary",
+  "host": "cheboksary.blackrussia.online"
+ },
+ {
+  "num": 49,
+  "name": "Khabarovsk",
+  "host": "khabarovsk.blackrussia.online"
+ },
+ {
+  "num": 50,
+  "name": "Perm",
+  "host": "perm.blackrussia.online"
+ },
+ {
+  "num": 51,
+  "name": "Tula",
+  "host": "tula.blackrussia.online"
+ },
+ {
+  "num": 52,
+  "name": "Ryazan",
+  "host": "ryazan.blackrussia.online"
+ },
+ {
+  "num": 53,
+  "name": "Murmansk",
+  "host": "murmansk.blackrussia.online"
+ },
+ {
+  "num": 54,
+  "name": "Penza",
+  "host": "penza.blackrussia.online"
+ },
+ {
+  "num": 55,
+  "name": "Kursk",
+  "host": "kursk.blackrussia.online"
+ },
+ {
+  "num": 56,
+  "name": "Arkhangelsk",
+  "host": "arkhangelsk.blackrussia.online"
+ },
+ {
+  "num": 57,
+  "name": "Orenburg",
+  "host": "orenburg.blackrussia.online"
+ },
+ {
+  "num": 58,
+  "name": "Kirov",
+  "host": "kirov.blackrussia.online"
+ },
+ {
+  "num": 59,
+  "name": "Kemerovo",
+  "host": "kemerovo.blackrussia.online"
+ },
+ {
+  "num": 60,
+  "name": "Tyumen",
+  "host": "tyumen.blackrussia.online"
+ },
+ {
+  "num": 61,
+  "name": "Tolyatti",
+  "host": "tolyatti.blackrussia.online"
+ },
+ {
+  "num": 62,
+  "name": "Ivanovo",
+  "host": "ivanovo.blackrussia.online"
+ },
+ {
+  "num": 63,
+  "name": "Stavropol",
+  "host": "stavropol.blackrussia.online"
+ },
+ {
+  "num": 64,
+  "name": "Smolensk",
+  "host": "smolensk.blackrussia.online"
+ },
+ {
+  "num": 65,
+  "name": "Pskov",
+  "host": "pskov.blackrussia.online"
+ },
+ {
+  "num": 66,
+  "name": "Bryansk",
+  "host": "bryansk.blackrussia.online"
+ },
+ {
+  "num": 67,
+  "name": "Orel",
+  "host": "orel.blackrussia.online"
+ },
+ {
+  "num": 68,
+  "name": "Yaroslavl",
+  "host": "yaroslavl.blackrussia.online"
+ },
+ {
+  "num": 69,
+  "name": "Barnaul",
+  "host": "barnaul.blackrussia.online"
+ },
+ {
+  "num": 70,
+  "name": "Lipetsk",
+  "host": "lipetsk.blackrussia.online"
+ },
+ {
+  "num": 71,
+  "name": "Ulyanovsk",
+  "host": "ulyanovsk.blackrussia.online"
+ },
+ {
+  "num": 72,
+  "name": "Yakutsk",
+  "host": "yakutsk.blackrussia.online"
+ },
+ {
+  "num": 73,
+  "name": "Tambov",
+  "host": "tambov.blackrussia.online"
+ },
+ {
+  "num": 74,
+  "name": "Bratsk",
+  "host": "bratsk.blackrussia.online"
+ },
+ {
+  "num": 75,
+  "name": "Astrakhan",
+  "host": "astrakhan.blackrussia.online"
+ },
+ {
+  "num": 76,
+  "name": "Chita",
+  "host": "chita.blackrussia.online"
+ },
+ {
+  "num": 77,
+  "name": "Kostroma",
+  "host": "kostroma.blackrussia.online"
+ },
+ {
+  "num": 78,
+  "name": "Vladimir",
+  "host": "vladimir.blackrussia.online"
+ },
+ {
+  "num": 79,
+  "name": "Kaluga",
+  "host": "kaluga.blackrussia.online"
+ },
+ {
+  "num": 80,
+  "name": "Novgorod",
+  "host": "novgorod.blackrussia.online"
+ },
+ {
+  "num": 81,
+  "name": "Taganrog",
+  "host": "taganrog.blackrussia.online"
+ },
+ {
+  "num": 82,
+  "name": "Vologda",
+  "host": "vologda.blackrussia.online"
+ },
+ {
+  "num": 83,
+  "name": "Tver",
+  "host": "tver.blackrussia.online"
+ },
+ {
+  "num": 84,
+  "name": "Tomsk",
+  "host": "tomsk.blackrussia.online"
+ },
+ {
+  "num": 85,
+  "name": "Izhevsk",
+  "host": "izhevsk.blackrussia.online"
+ },
+ {
+  "num": 86,
+  "name": "Surgut",
+  "host": "surgut.blackrussia.online"
+ },
+ {
+  "num": 87,
+  "name": "Podolsk",
+  "host": "podolsk.blackrussia.online"
+ },
+ {
+  "num": 88,
+  "name": "Magadan",
+  "host": "magadan.blackrussia.online"
+ },
+ {
+  "num": 89,
+  "name": "Cherepovets",
+  "host": "cherepovets.blackrussia.online"
+ },
+ {
+  "num": 90,
+  "name": "Norilsk",
+  "host": "norilsk.blackrussia.online"
+ },
+ {
+  "num": 91,
+  "name": "Astana",
+  "host": "astana.blackrussia.online"
+ }
+]
