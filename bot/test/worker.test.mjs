@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import worker from "../worker.js";
 
 const data = readFileSync(new URL("../../data/servers.json", import.meta.url), "utf8");
+const accData = readFileSync(new URL("../../data/accounts.json", import.meta.url), "utf8");
 const sent = [];
 
 globalThis.fetch = async (url, init) => {
@@ -11,10 +12,12 @@ globalThis.fetch = async (url, init) => {
     if (String(url).includes("/sendMessage")) sent.push(JSON.parse(init.body));
     return new Response("{}", { status: 200 });
   }
+  if (String(url).includes("accounts.json")) return new Response(accData, { status: 200 });
   return new Response(data, { status: 200 });          // подменяет DATA_URL
 };
 
-const env = { BOT_TOKEN: "x", DATA_URL: "https://example/data.json", WEBHOOK_SECRET: "s" };
+const env = { BOT_TOKEN: "x", DATA_URL: "https://example/servers.json",
+              ACCOUNTS_URL: "https://example/accounts.json", WEBHOOK_SECRET: "s" };
 const post = async payload => {
   sent.length = 0;
   await worker.fetch(new Request("https://w/", {
@@ -39,12 +42,17 @@ const tap = async data => {
   return m ? m.text.split("\n").slice(0, 3).join("\n") : "(нет ответа)";
 };
 
-for (const cmd of ["/start", "📈 Где фармить", "💰 Где дешевле", "blue", "34", "80", "зззз"]) {
+for (const cmd of ["/start", "🎮 Аккаунты", "💰 Где дешевле", "blue"]) {
   const out = await ask(cmd);
   console.log(`\n===== ${cmd} =====\n${out}`);
 }
 
 console.log("\n===== нажатие кнопки s:42 =====\n" + await tap("s:42"));
+// Карточка лота: берём id первого лота из выгрузки.
+const firstLot = JSON.parse(accData).lots.filter(l => l.c === "ok")[0];
+console.log("\n===== карточка лота =====\n" + (await post({
+  callback_query: { id: "1", data: `a:${firstLot.i}`, message: { chat: { id: 1 } } },
+})).text);
 console.log("\n===== нажатие кнопки c:/cheap =====\n" + await tap("c:/cheap"));
 
 // Чужой запрос без секрета не должен обслуживаться.

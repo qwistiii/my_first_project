@@ -13,15 +13,22 @@
  */
 
 const CACHE_TTL_MS = 4 * 60 * 1000;
-let cache = { at: 0, data: null };
+const caches = { servers: { at: 0, data: null }, accounts: { at: 0, data: null } };
 
-async function loadData(env) {
-  if (cache.data && Date.now() - cache.at < CACHE_TTL_MS) return cache.data;
-  const r = await fetch(env.DATA_URL, { cf: { cacheTtl: 120 } });
+async function load(url, slot) {
+  const c = caches[slot];
+  if (c.data && Date.now() - c.at < CACHE_TTL_MS) return c.data;
+  const r = await fetch(url, { cf: { cacheTtl: 120 } });
   if (!r.ok) throw new Error(`данные недоступны: HTTP ${r.status}`);
-  cache = { at: Date.now(), data: await r.json() };
-  return cache.data;
+  c.at = Date.now();
+  c.data = await r.json();
+  return c.data;
 }
+
+const loadData = env => load(env.DATA_URL, "servers");
+// Выгрузка аккаунтов лежит рядом с выгрузкой серверов.
+const loadAccounts = env =>
+  load(env.ACCOUNTS_URL || env.DATA_URL.replace(/servers\.json$/, "accounts.json"), "accounts");
 
 const esc = s => String(s).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
 
@@ -113,6 +120,43 @@ function cardFor(s, updated) {
   return rows.join("\n");
 }
 
+const kk = v => v >= 1000 ? `${(v / 1000).toFixed(1)} млрд` : `${v} кк`;
+
+/** Строка списка аккаунтов: цена, уровень, добро. */
+const accRow = l =>
+  `${String(Math.round(l.p)).padStart(6)}₽ ${String(l.l).padStart(2)}лвл ${l.n.slice(0, 13)}`;
+
+function accCard(l, meta) {
+  const rows = [
+    `<b>${Math.round(l.p)} ₽</b> · ${l.l} уровень · ${esc(l.n)}`,
+    "",
+    `<i>${esc(l.d)}</i>`,
+    "",
+  ];
+  if (l.a > 0) {
+    rows.push(l.c === "hi"
+      ? `⚠️ заявлено <b>${kk(l.a)}</b> — столько виртов стоит ${l.w.toLocaleString("ru-RU")} ₽ на бирже, а лот отдают за ${Math.round(l.p)} ₽. Скорее всего продавец ошибся в единицах.`
+      : `💰 добра на <b>${kk(l.a)}</b> — по бирже это ${l.w.toLocaleString("ru-RU")} ₽`);
+    rows.push("");
+  }
+  if (l.f.length) rows.push(l.f.join(" · "), "");
+  rows.push(`продавец ${esc(l.u)} · ${l.r ? `${l.r} отз.` : "без отзывов"}` +
+            `${l.on ? " · в сети" : ""}`);
+  rows.push(`<a href="https://funpay.com/lots/offer?id=${l.i}">открыть на FunPay</a>`);
+  rows.push("", freshness(meta.updated));
+  return rows.join("\n");
+}
+
+const accButtons = list => ({
+  inline_keyboard: [
+    ...chunk(list.map(l => ({
+      text: `${Math.round(l.p)}₽ · ${l.l}лвл · ${l.n.replace(/^№\d+\s*/, "").slice(0, 10)}`,
+      callback_data: `a:${l.i}`,
+    })), 2),
+    [{ text: "‹ К списку", callback_data: "c:/acc" }],
+  ],
+});
+
 const cardButtons = () => ({
   inline_keyboard: [[
     { text: "📈 Фарм", callback_data: "c:/best" },
@@ -135,7 +179,8 @@ function findServer(servers, query) {
 const MENU = {
   keyboard: [
     [{ text: "📈 Где фармить" }, { text: "💰 Где дешевле" }],
-    [{ text: "👥 Онлайн" }, { text: "🔍 Найти сервер" }],
+    [{ text: "👥 Онлайн" }, { text: "🎮 Аккаунты" }],
+    [{ text: "🔍 Найти сервер" }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -161,6 +206,7 @@ const HELP = [
   "📈 <b>Где фармить</b> — людно и цена не худшая",
   "💰 <b>Где дешевле</b> — выгоднее купить",
   "👥 <b>Онлайн</b> — самые населённые",
+  "🎮 <b>Аккаунты</b> — что продают и не врут ли в описании",
   "",
   "Или напишите сервер: <code>blue</code>, <code>42</code>",
   "",
@@ -172,6 +218,7 @@ const BUTTON_COMMANDS = {
   "💰 где дешевле": "/cheap",
   "👥 онлайн": "/top",
   "🔍 найти сервер": "/find",
+  "🎮 аккаунты": "/acc",
 };
 
 async function handle(text, env) {
@@ -223,6 +270,32 @@ async function handle(text, env) {
         freshness(data.updated)].join("\n"),
       buttons: serverButtons(list),
     };
+  }
+
+  if (cmd === "/acc" || cmd === "/acc_all") {
+    const acc = await loadAccounts(env);
+    // По умолчанию показываем только лоты, чьё описание сходится с рынком,
+    // и только продавцов с отзывами: иначе в топе окажется мусор.
+    const trusted = cmd === "/acc";
+    const pool = acc.lots.filter(l => (trusted ? l.c === "ok" : true) && l.r > 0);
+    const list = pool.sort((a, b) => a.p - b.p).slice(0, 10);
+    const hidden = acc.lots.filter(l => l.c === "hi").length;
+    return {
+      text: ["🎮 <b>Аккаунты — самые дешёвые</b>",
+        `<i>${trusted ? "только лоты, где заявленное сходится с ценой" : "все лоты, включая сомнительные"}</i>`,
+        table(["  цена уров сервер", ...list.map(accRow)]),
+        `<i>видно ${acc.lots_shown} из ${acc.lots_total} лотов категории — больше FunPay не отдаёт.`,
+        `У ${hidden} описание расходится с рынком, они скрыты.</i>`,
+        freshness(acc.updated)].join("\n"),
+      buttons: accButtons(list),
+    };
+  }
+
+  if (/^\/a\d+$/.test(cmd)) {
+    const acc = await loadAccounts(env);
+    const l = acc.lots.find(x => x.i === Number(cmd.slice(2)));
+    if (l) return { text: accCard(l, acc), buttons: accButtons([]) };
+    return { text: "Этот лот уже не в выдаче — возможно, его продали.", keyboard: MENU };
   }
 
   // Название сервера можно писать без команды — так проще всего.
@@ -278,6 +351,7 @@ export default {
       await api(env, "answerCallbackQuery", { callback_query_id: cb.id });
       const data = cb.data || "";
       const text = data.startsWith("s:") ? data.slice(2)
+                 : data.startsWith("a:") ? `/a${data.slice(2)}`
                  : data.startsWith("c:") ? data.slice(2)
                  : "/start";
       let reply;

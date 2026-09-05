@@ -35,6 +35,11 @@ jobs:
       - name: Собрать онлайн и цены
         run: python bot/collect.py
 
+      # Строго после: проверка аккаунтов опирается на рыночную цену вирта,
+      # а она берётся из свежесобранной выгрузки по серверам.
+      - name: Собрать аккаунты
+        run: python bot/collect_accounts.py
+
       - name: Проверить, что данные осмысленные
         run: |
           python - <<'PY'
@@ -49,12 +54,12 @@ jobs:
 
       - name: Закоммитить, если данные изменились
         run: |
-          if git diff --quiet -- data/servers.json data/min_orders.json; then
+          if git diff --quiet -- data/servers.json data/min_orders.json data/accounts.json; then
             echo "данные не изменились — коммит не нужен"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/servers.json data/min_orders.json
+          git add data/servers.json data/min_orders.json data/accounts.json
           git commit -m "Данные серверов: $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push

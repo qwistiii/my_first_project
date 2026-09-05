@@ -15,3 +15,4 @@ compatibility_date = "2026-09-01"
 # Откуда воркер берёт данные. Файл лежит в этом же репозитории и обновляется
 # сборщиком каждые 15 минут.
 DATA_URL = "https://raw.githubusercontent.com/qwistiii/my_first_project/main/data/servers.json"
+ACCOUNTS_URL = "https://raw.githubusercontent.com/qwistiii/my_first_project/main/data/accounts.json"
