@@ -1,15 +1,16 @@
 /**
- * Телеграм-бот «Вирты Black Russia» на Cloudflare Workers.
+ * Телеграм-бот «Аналитика Black Russia» на Cloudflare Workers.
  *
  * Воркер только отвечает на сообщения: данные собирает GitHub Actions и кладёт
- * в data/servers.json репозитория, откуда воркер их читает и держит в памяти
- * несколько минут. Так бот отвечает мгновенно и не дёргает ни FunPay, ни
- * игровые серверы на каждое сообщение.
+ * в data/ репозитория, откуда воркер их читает и держит в памяти несколько
+ * минут. Так бот отвечает мгновенно и не дёргает ни FunPay, ни игровые
+ * серверы на каждое сообщение.
  *
- * Переменные окружения (Settings → Variables):
+ * Переменные окружения:
  *   BOT_TOKEN      — токен от @BotFather (секрет)
+ *   WEBHOOK_SECRET — то же, что передано Telegram в secret_token (секрет)
  *   DATA_URL       — ссылка на raw-версию data/servers.json
- *   WEBHOOK_SECRET — та же строка, что передана Telegram в secret_token (секрет)
+ *   ACCOUNTS_URL   — ссылка на raw-версию data/accounts.json
  */
 
 const CACHE_TTL_MS = 4 * 60 * 1000;
@@ -26,16 +27,21 @@ async function load(url, slot) {
 }
 
 const loadData = env => load(env.DATA_URL, "servers");
-// Выгрузка аккаунтов лежит рядом с выгрузкой серверов.
 const loadAccounts = env =>
   load(env.ACCOUNTS_URL || env.DATA_URL.replace(/servers\.json$/, "accounts.json"), "accounts");
 
+/* ------------------------------------------------------------------ формат */
+
 const esc = s => String(s).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
 
-/** В колонке цены всегда два знака: иначе 61.1 и 65.99 не выстраиваются. */
-const rub = v => (v == null ? "—" : Number(v).toFixed(2));
+/* Моноширинных блоков здесь нет намеренно: Телеграм рисует их как код, с
+   кнопкой «копировать», а в шрифте кода нет символа рубля — вместо ₽ выходит
+   квадратик. Поэтому строки просто короткие, чтобы не переносились. */
+const rub = v => (v == null ? "—" : Number(v) >= 100 ? String(Math.round(v)) : Number(v).toFixed(2));
+const num = v => Number(v).toLocaleString("ru-RU").replace(/\u00a0/g, " ");
+const kk = v => (v >= 1000 ? `${(v / 1000).toFixed(1)} млрд` : `${num(v)} кк`);
+const srvName = s => `№${String(s.num).padStart(2, "0")} ${s.name}`;
 
-/** Заполненность словом — понятнее, чем проценты. */
 function fillWord(s) {
   if (!s.online || !s.cap) return null;
   const p = s.online / s.cap;
@@ -43,16 +49,12 @@ function fillWord(s) {
        : p >= 0.45 ? "средне" : p >= 0.25 ? "малолюдно" : "пусто";
 }
 
-/** Полоска заполненности: пять делений читаются быстрее числа. */
 function fillBar(s) {
   if (!s.online || !s.cap) return "";
   const n = Math.min(5, Math.max(1, Math.round((s.online / s.cap) * 5)));
   return "▰".repeat(n) + "▱".repeat(5 - n);
 }
 
-const label = s => `${String(s.num).padStart(2, "0")} ${s.name}`;
-
-/** Дата сбора: короткой строкой, но всегда — иначе не понять, свежее ли это. */
 function freshness(iso) {
   const d = new Date(iso);
   const min = Math.round((Date.now() - d.getTime()) / 60000);
@@ -64,45 +66,63 @@ function freshness(iso) {
   return `<i>${stamp} МСК · ${ago}${min > 45 ? " ⚠️ устарело" : ""}</i>`;
 }
 
-/* Списки идут моноширинным блоком: в обычном тексте строка не помещается в
-   ширину экрана и переносится посреди числа, отчего список выглядит кашей.
-   Колонки рассчитаны по самому длинному имени — «42 Makhachkala». */
-const NAME_W = 14;
+/* ------------------------------------------------------------------- меню */
 
-function table(rows) {
-  return `<pre>${rows.join("\n")}</pre>`;
-}
+/* Два раздела вместо свалки команд: у виртов и аккаунтов общего только
+   сервер, а вопросы к ним разные. */
+const MENU = {
+  keyboard: [
+    [{ text: "💰 Вирты" }, { text: "🎮 Аккаунты" }],
+    [{ text: "🔍 Поиск" }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+};
 
-const priceRow = s => `${label(s).padEnd(NAME_W)} ${rub(s.safe ?? s.min).padStart(5)} ₽`;
-const farmRow = s =>
-  `${label(s).padEnd(NAME_W)} ${rub(s.safe ?? s.min).padStart(5)} ${String(s.online).padStart(5)}`;
-const onlineRow = s => `${label(s).padEnd(NAME_W)} ${String(s.online).padStart(4)} ${fillBar(s)}`;
+const rows = (...lines) => ({ inline_keyboard: lines.filter(l => l && l.length) });
+const btn = (text, data) => ({ text, callback_data: data });
+const backTo = where => [btn("‹ Назад", `c:${where}`)];
 
-// Шапки считаем по тем же ширинам, что и строки, иначе они разъезжаются.
-const HEAD_PRICE = `${"сервер".padEnd(NAME_W)} ${"цена".padStart(5)}`;
-const HEAD_FARM = `${"сервер".padEnd(NAME_W)} ${"цена".padStart(5)} ${"людей".padStart(5)}`;
-const HEAD_ONLINE = `${"сервер".padEnd(NAME_W)} ${"люди".padStart(4)}`;
+const VIRT_MENU = rows(
+  [btn("📈 Где фармить", "c:/best"), btn("💰 Где дешевле", "c:/cheap")],
+  [btn("👥 Онлайн", "c:/top"), btn("📋 Все серверы", "c:/all")],
+);
 
-function cardFor(s, updated) {
-  const rows = [`<b>${esc(s.name)}</b>  <code>№${String(s.num).padStart(2, "0")}</code>`, ""];
+const ACC_MENU = rows(
+  [btn("💸 Дешёвые", "c:/acc"), btn("🎯 По уровню", "c:/lvl")],
+  [btn("🖥 По серверу", "c:/accsrv"), btn("⚠️ Сомнительные", "c:/acc_bad")],
+);
 
+const chunk = (arr, n) => arr.reduce(
+  (acc, item, i) => (i % n ? acc[acc.length - 1].push(item) : acc.push([item]), acc), []);
+
+/* --------------------------------------------------------------- вирты */
+
+const cheapLine = s => `<b>${srvName(s)}</b> — ${rub(s.safe ?? s.min)} ₽`;
+const farmLine = s => `<b>${srvName(s)}</b> — ${rub(s.safe ?? s.min)} ₽ · ${num(s.online)}`;
+const onlineLine = s => `<b>${srvName(s)}</b> — ${num(s.online)} ${fillBar(s)}`;
+
+const serverButtons = list => rows(
+  ...chunk(list.map(s => btn(srvName(s), `s:${s.num}`)), 2),
+  backTo("/virt"),
+);
+
+function serverCard(s, updated) {
+  const out = [`<b>${esc(s.name)}</b>  №${String(s.num).padStart(2, "0")}`, ""];
   if (s.online != null) {
-    rows.push(`${fillBar(s)}  <b>${s.online}</b> из ${s.cap} — ${fillWord(s)}`);
+    out.push(`${fillBar(s)}  <b>${num(s.online)}</b> из ${num(s.cap)} — ${fillWord(s)}`);
   }
-  if (s.sellers_online != null) {
-    rows.push(`${s.sellers_online} продавцов в сети`);
-  }
+  if (s.sellers_online != null) out.push(`${s.sellers_online} продавцов виртов в сети`);
 
-  const seller = (name, reviews, min) => {
-    const bits = [esc(name || "—")];
-    bits.push(reviews ? `${reviews} отз.` : "без отзывов");
+  const who = (name, reviews, min) => {
+    const bits = [esc(name || "—"), reviews ? `${num(reviews)} отз.` : "без отзывов"];
     if (min) bits.push(`от ${min} кк`);
     else if (min === 0) bits.push("без минимума");
     return bits.join(" · ");
   };
 
-  rows.push("", `💰 <b>${rub(s.min)} ₽</b> — дешевле всех`,
-    `<i>${seller(s.min_seller, s.min_reviews, s.min_order)}</i>`);
+  out.push("", `💰 <b>${rub(s.min)} ₽</b> — дешевле всех`,
+    `<i>${who(s.min_seller, s.min_reviews, s.min_order)}</i>`);
 
   // Если верхняя строка списка недостижима, честнее сразу показать вторую
   // цену — и назвать настоящую причину, а не любую подвернувшуюся.
@@ -111,59 +131,194 @@ function cardFor(s, updated) {
       : s.min_order == null ? "условия того лота не прочитались"
       : s.min_order > 0 ? `там минимум ${s.min_order} кк`
       : "тот лот не прошёл проверку";
-    rows.push("", `✅ <b>${rub(s.safe)} ₽</b> — можно брать`,
-      `<i>${seller(s.safe_seller, s.safe_reviews, s.safe_min_order)}</i>`,
+    out.push("", `✅ <b>${rub(s.safe)} ₽</b> — можно брать`,
+      `<i>${who(s.safe_seller, s.safe_reviews, s.safe_min_order)}</i>`,
       `<i>дешевле есть, но ${why}</i>`);
   }
-
-  rows.push("", freshness(updated));
-  return rows.join("\n");
+  out.push("", freshness(updated));
+  return out.join("\n");
 }
 
-const kk = v => v >= 1000 ? `${(v / 1000).toFixed(1)} млрд` : `${v} кк`;
+/* ------------------------------------------------------------ аккаунты */
 
-/** Строка списка аккаунтов: цена, уровень, добро. */
-const accRow = l =>
-  `${String(Math.round(l.p)).padStart(6)}₽ ${String(l.l).padStart(2)}лвл ${l.n.slice(0, 13)}`;
+const LEVELS = [[1, 4], [5, 9], [10, 14], [15, 99]];
+const levelName = ([a, b]) => (b === 99 ? `${a}+ лвл` : `${a}–${b} лвл`);
+
+const accLine = l => `<b>${Math.round(l.p)} ₽</b> · ${l.l} лвл · ${esc(l.n)}`;
+
+const accButtons = (list, back) => rows(
+  ...chunk(list.map(l => btn(`${Math.round(l.p)}₽ · ${l.l}лвл`, `a:${l.i}`)), 3),
+  backTo(back || "/acc_menu"),
+);
 
 function accCard(l, meta) {
-  const rows = [
+  const out = [
     `<b>${Math.round(l.p)} ₽</b> · ${l.l} уровень · ${esc(l.n)}`,
     "",
     `<i>${esc(l.d)}</i>`,
-    "",
   ];
   if (l.a > 0) {
-    rows.push(l.c === "hi"
-      ? `⚠️ заявлено <b>${kk(l.a)}</b> — столько виртов стоит ${l.w.toLocaleString("ru-RU")} ₽ на бирже, а лот отдают за ${Math.round(l.p)} ₽. Скорее всего продавец ошибся в единицах.`
-      : `💰 добра на <b>${kk(l.a)}</b> — по бирже это ${l.w.toLocaleString("ru-RU")} ₽`);
-    rows.push("");
+    out.push("", l.c === "hi"
+      ? `⚠️ <b>Заявлено ${kk(l.a)}</b> — по бирже это ${num(l.w)} ₽, а лот отдают за ${Math.round(l.p)} ₽. Скорее всего продавец ошибся в единицах: поле считается тысячами.`
+      : `💰 добра на <b>${kk(l.a)}</b> — по бирже это ${num(l.w)} ₽`);
   }
-  if (l.f.length) rows.push(l.f.join(" · "), "");
-  rows.push(`продавец ${esc(l.u)} · ${l.r ? `${l.r} отз.` : "без отзывов"}` +
-            `${l.on ? " · в сети" : ""}`);
-  rows.push(`<a href="https://funpay.com/lots/offer?id=${l.i}">открыть на FunPay</a>`);
-  rows.push("", freshness(meta.updated));
-  return rows.join("\n");
+  if (l.f.length) out.push("", l.f.join(" · "));
+  out.push("",
+    `продавец ${esc(l.u)} · ${l.r ? `${num(l.r)} отз.` : "без отзывов"}${l.on ? " · в сети" : ""}`,
+    `<a href="https://funpay.com/lots/offer?id=${l.i}">открыть на FunPay</a>`,
+    "", freshness(meta.updated));
+  return out.join("\n");
 }
 
-const accButtons = list => ({
-  inline_keyboard: [
-    ...chunk(list.map(l => ({
-      text: `${Math.round(l.p)}₽ · ${l.l}лвл · ${l.n.replace(/^№\d+\s*/, "").slice(0, 10)}`,
-      callback_data: `a:${l.i}`,
-    })), 2),
-    [{ text: "‹ К списку", callback_data: "c:/acc" }],
-  ],
+/** Честный охват: показывать часть категории как всё — обман. */
+const accFooter = acc =>
+  `<i>видно ${num(acc.lots_shown)} из ${num(acc.lots_total)} лотов — больше FunPay не отдаёт</i>`;
+
+const goodLots = acc => acc.lots.filter(l => l.c === "ok" && l.r > 0);
+
+const accList = (acc, list, title, note, back) => ({
+  text: [title, note ? `<i>${note}</i>` : null, "",
+    ...list.map(accLine), "", accFooter(acc), freshness(acc.updated)]
+    .filter(x => x !== null).join("\n"),
+  buttons: accButtons(list, back),
 });
 
-const cardButtons = () => ({
-  inline_keyboard: [[
-    { text: "📈 Фарм", callback_data: "c:/best" },
-    { text: "💰 Дешевле", callback_data: "c:/cheap" },
-    { text: "👥 Онлайн", callback_data: "c:/top" },
-  ]],
-});
+/* -------------------------------------------------------------- разбор */
+
+const HELP = [
+  "<b>Аналитика Black Russia</b>",
+  "",
+  "💰 <b>Вирты</b> — где дешевле купить и где выгоднее фармить",
+  "🎮 <b>Аккаунты</b> — что продают и не врут ли в описании",
+  "🔍 <b>Поиск</b> — сервер по названию или номеру",
+  "",
+  "<i>Цены с FunPay, онлайн — с сайта игры. Обновляется каждые 15 минут.</i>",
+].join("\n");
+
+const BUTTONS = {
+  "💰 вирты": "/virt",
+  "🎮 аккаунты": "/acc_menu",
+  "🔍 поиск": "/find",
+};
+
+async function handle(text, env) {
+  const raw = text.trim();
+  const [cmdRaw, ...rest] = (BUTTONS[raw.toLowerCase()] || raw).split(/\s+/);
+  const cmd = cmdRaw.toLowerCase().split("@")[0];
+  const arg = rest.join(" ");
+
+  if (cmd === "/start" || cmd === "/help") return { text: HELP, keyboard: MENU };
+  if (cmd === "/virt") return { text: "💰 <b>Вирты</b>\n<i>Что показать?</i>", buttons: VIRT_MENU };
+  if (cmd === "/acc_menu") return { text: "🎮 <b>Аккаунты</b>\n<i>Что показать?</i>", buttons: ACC_MENU };
+  if (cmd === "/find") {
+    return { text: "Напишите название или номер сервера — например <code>blue</code> или <code>42</code>.",
+             keyboard: MENU };
+  }
+  if (cmd === "/accsrv") {
+    return { text: "Напишите сервер, и в его карточке будет кнопка «Аккаунты здесь» — например <code>blue</code>.",
+             keyboard: MENU };
+  }
+
+  if (["/best", "/cheap", "/top", "/all"].includes(cmd)) {
+    const data = await loadData(env);
+    const all = data.servers;
+
+    if (cmd === "/all") {
+      // Страницами по 16: 91 сервер не помещается ни в сообщение, ни в кнопки.
+      const page = Math.max(0, Number(arg) || 0);
+      const sorted = all.slice().sort((a, b) => a.num - b.num);
+      const pages = Math.ceil(sorted.length / 16);
+      const slice = sorted.slice(page * 16, page * 16 + 16);
+      const nav = [];
+      if (page > 0) nav.push(btn("‹ Раньше", `c:/all ${page - 1}`));
+      if (page + 1 < pages) nav.push(btn("Дальше ›", `c:/all ${page + 1}`));
+      return {
+        text: [`📋 <b>Все серверы</b> — страница ${page + 1} из ${pages}`, "",
+          ...slice.map(cheapLine), "", freshness(data.updated)].join("\n"),
+        buttons: rows(...chunk(slice.map(s => btn(srvName(s), `s:${s.num}`)), 2),
+          nav, backTo("/virt")),
+      };
+    }
+
+    const [pool, title, note, line] = {
+      "/best": [all.filter(s => s.index).sort((a, b) => b.index - a.index),
+        "📈 <b>Где выгоднее фармить</b>", "цена × игроки: дорого на пустом сервере бесполезно", farmLine],
+      "/cheap": [all.filter(s => s.safe != null).sort((a, b) => a.safe - b.safe),
+        "💰 <b>Где дешевле купить</b>", "у продавца с отзывами, у которого реально можно взять", cheapLine],
+      "/top": [all.filter(s => s.online != null).sort((a, b) => b.online - a.online),
+        "👥 <b>Самые населённые</b>", null, onlineLine],
+    }[cmd];
+    if (!pool.length) return { text: "Данные ещё не собрались, попробуйте через несколько минут." };
+    const list = pool.slice(0, 10);
+    return {
+      text: [title, note ? `<i>${note}</i>` : null, "", ...list.map(line), "", freshness(data.updated)]
+        .filter(x => x !== null).join("\n"),
+      buttons: serverButtons(list),
+    };
+  }
+
+  if (cmd === "/acc" || cmd === "/acc_bad") {
+    const acc = await loadAccounts(env);
+    if (cmd === "/acc_bad") {
+      const all = acc.lots.filter(l => l.c === "hi");
+      return accList(acc, all.slice().sort((a, b) => b.a - a.a).slice(0, 10),
+        "⚠️ <b>Сомнительные лоты</b>",
+        `таких ${num(all.length)}: заявленное добро стоит дороже самого лота в разы`);
+    }
+    return accList(acc, goodLots(acc).sort((a, b) => a.p - b.p).slice(0, 10),
+      "💸 <b>Аккаунты — самые дешёвые</b>", "только лоты, где заявленное сходится с ценой");
+  }
+
+  if (cmd === "/lvl") {
+    const acc = await loadAccounts(env);
+    if (!arg) {
+      return {
+        text: "🎯 <b>Аккаунты по уровню</b>\n<i>Выберите диапазон</i>",
+        buttons: rows(...chunk(LEVELS.map((r, i) => btn(levelName(r), `c:/lvl ${i}`)), 2),
+          backTo("/acc_menu")),
+      };
+    }
+    const range = LEVELS[Number(arg)] || LEVELS[0];
+    const list = goodLots(acc).filter(l => l.l >= range[0] && l.l <= range[1])
+      .sort((a, b) => a.p - b.p).slice(0, 10);
+    if (!list.length) return { text: "На этот диапазон лотов не нашлось.", buttons: ACC_MENU };
+    return accList(acc, list, `🎯 <b>Аккаунты ${levelName(range)}</b>`,
+      "самые дешёвые из правдоподобных", "/lvl");
+  }
+
+  if (/^\/a\d+$/.test(cmd)) {
+    const acc = await loadAccounts(env);
+    const l = acc.lots.find(x => x.i === Number(cmd.slice(2)));
+    return l ? { text: accCard(l, acc), buttons: rows(backTo("/acc_menu")) }
+             : { text: "Этот лот уже не в выдаче — возможно, его продали.", keyboard: MENU };
+  }
+
+  if (/^\/n\d+$/.test(cmd)) {
+    const acc = await loadAccounts(env);
+    const srv = Number(cmd.slice(2));
+    const list = goodLots(acc).filter(l => l.s === srv).sort((a, b) => a.p - b.p).slice(0, 10);
+    if (!list.length) return { text: "На этом сервере правдоподобных лотов не нашлось.", buttons: ACC_MENU };
+    return accList(acc, list, `🎮 <b>Аккаунты — ${esc(list[0].n)}</b>`, "самые дешёвые из правдоподобных");
+  }
+
+  // Название сервера можно писать без команды — так проще всего.
+  const query = cmd === "/s" || cmd === "/server" ? arg : raw;
+  if (query && !query.startsWith("/")) {
+    const data = await loadData(env);
+    const s = findServer(data.servers, query);
+    if (s) {
+      return {
+        text: serverCard(s, data.updated),
+        buttons: rows([btn("🎮 Аккаунты здесь", `n:${s.num}`)],
+          [btn("💰 Вирты", "c:/virt"), btn("🎮 Аккаунты", "c:/acc_menu")]),
+      };
+    }
+    return { text: `Сервер «${esc(query)}» не найден. Попробуйте номер, например <code>42</code>.`,
+             keyboard: MENU };
+  }
+
+  return { text: HELP, keyboard: MENU };
+}
 
 function findServer(servers, query) {
   const q = query.trim().toLowerCase().replace(/^№|^#/, "");
@@ -174,141 +329,7 @@ function findServer(servers, query) {
       || servers.find(s => s.name.toLowerCase().includes(q));
 }
 
-/* Постоянные кнопки под полем ввода: на телефоне печатать команды неудобно,
-   а половину из них ещё и набирают с ошибкой. */
-const MENU = {
-  keyboard: [
-    [{ text: "📈 Где фармить" }, { text: "💰 Где дешевле" }],
-    [{ text: "👥 Онлайн" }, { text: "🎮 Аккаунты" }],
-    [{ text: "🔍 Найти сервер" }],
-  ],
-  resize_keyboard: true,
-  is_persistent: true,
-};
-
-/** Кнопки под списком: открыть карточку сервера одним касанием. */
-const serverButtons = (list, back) => ({
-  inline_keyboard: [
-    ...chunk(list.map(s => ({
-      text: `№${String(s.num).padStart(2, "0")} ${s.name}`,
-      callback_data: `s:${s.num}`,
-    })), 2),
-    ...(back ? [[{ text: "‹ Назад", callback_data: back }]] : []),
-  ],
-});
-
-const chunk = (arr, n) => arr.reduce(
-  (rows, item, i) => (i % n ? rows[rows.length - 1].push(item) : rows.push([item]), rows), []);
-
-const HELP = [
-  "<b>Вирты Black Russia</b>",
-  "",
-  "📈 <b>Где фармить</b> — людно и цена не худшая",
-  "💰 <b>Где дешевле</b> — выгоднее купить",
-  "👥 <b>Онлайн</b> — самые населённые",
-  "🎮 <b>Аккаунты</b> — что продают и не врут ли в описании",
-  "",
-  "Или напишите сервер: <code>blue</code>, <code>42</code>",
-  "",
-  "<i>Цены за 1 кк с FunPay, онлайн — с сайта игры.</i>",
-].join("\n");
-
-const BUTTON_COMMANDS = {
-  "📈 где фармить": "/best",
-  "💰 где дешевле": "/cheap",
-  "👥 онлайн": "/top",
-  "🔍 найти сервер": "/find",
-  "🎮 аккаунты": "/acc",
-};
-
-async function handle(text, env) {
-  const raw = text.trim();
-  const mapped = BUTTON_COMMANDS[raw.toLowerCase()];
-  const [cmdRaw, ...rest] = (mapped || raw).split(/\s+/);
-  const cmd = cmdRaw.toLowerCase().split("@")[0];
-  const arg = rest.join(" ");
-
-  if (cmd === "/start" || cmd === "/help") return { text: HELP, keyboard: MENU };
-  if (cmd === "/find") {
-    return { text: "Напишите название или номер сервера — например <code>blue</code> или <code>42</code>.",
-             keyboard: MENU };
-  }
-
-  const data = await loadData(env);
-  const all = data.servers;
-  const priced = all.filter(s => s.min != null);
-
-  if (cmd === "/best") {
-    const list = all.filter(s => s.index).sort((a, b) => b.index - a.index).slice(0, 10);
-    if (!list.length) return { text: "Пока нет данных с онлайном — сборщик ещё не отработал." };
-    return {
-      text: ["📈 <b>Где выгоднее фармить</b>",
-        "<i>цена × игроки — дорого на пустом сервере бесполезно</i>",
-        table([HEAD_FARM, ...list.map(farmRow)]),
-        freshness(data.updated)].join("\n"),
-      buttons: serverButtons(list),
-    };
-  }
-
-  if (cmd === "/cheap") {
-    const list = priced.filter(s => s.safe != null).sort((a, b) => a.safe - b.safe).slice(0, 10);
-    return {
-      text: ["💰 <b>Где дешевле купить</b>",
-        "<i>у продавца с отзывами, у которого реально можно взять</i>",
-        table([HEAD_PRICE, ...list.map(priceRow)]),
-        freshness(data.updated)].join("\n"),
-      buttons: serverButtons(list),
-    };
-  }
-
-  if (cmd === "/top") {
-    const list = all.filter(s => s.online != null).sort((a, b) => b.online - a.online).slice(0, 10);
-    if (!list.length) return { text: "Онлайн серверов сейчас недоступен." };
-    return {
-      text: ["👥 <b>Самые населённые</b>",
-        table([HEAD_ONLINE, ...list.map(onlineRow)]),
-        freshness(data.updated)].join("\n"),
-      buttons: serverButtons(list),
-    };
-  }
-
-  if (cmd === "/acc" || cmd === "/acc_all") {
-    const acc = await loadAccounts(env);
-    // По умолчанию показываем только лоты, чьё описание сходится с рынком,
-    // и только продавцов с отзывами: иначе в топе окажется мусор.
-    const trusted = cmd === "/acc";
-    const pool = acc.lots.filter(l => (trusted ? l.c === "ok" : true) && l.r > 0);
-    const list = pool.sort((a, b) => a.p - b.p).slice(0, 10);
-    const hidden = acc.lots.filter(l => l.c === "hi").length;
-    return {
-      text: ["🎮 <b>Аккаунты — самые дешёвые</b>",
-        `<i>${trusted ? "только лоты, где заявленное сходится с ценой" : "все лоты, включая сомнительные"}</i>`,
-        table(["  цена уров сервер", ...list.map(accRow)]),
-        `<i>видно ${acc.lots_shown} из ${acc.lots_total} лотов категории — больше FunPay не отдаёт.`,
-        `У ${hidden} описание расходится с рынком, они скрыты.</i>`,
-        freshness(acc.updated)].join("\n"),
-      buttons: accButtons(list),
-    };
-  }
-
-  if (/^\/a\d+$/.test(cmd)) {
-    const acc = await loadAccounts(env);
-    const l = acc.lots.find(x => x.i === Number(cmd.slice(2)));
-    if (l) return { text: accCard(l, acc), buttons: accButtons([]) };
-    return { text: "Этот лот уже не в выдаче — возможно, его продали.", keyboard: MENU };
-  }
-
-  // Название сервера можно писать без команды — так проще всего.
-  const query = cmd === "/s" || cmd === "/server" ? arg : raw;
-  if (query && !query.startsWith("/")) {
-    const s = findServer(all, query);
-    if (s) return { text: cardFor(s, data.updated), buttons: cardButtons(s) };
-    return { text: `Сервер «${esc(query)}» не найден. Попробуйте номер, например <code>42</code>.`,
-             keyboard: MENU };
-  }
-
-  return { text: HELP, keyboard: MENU };
-}
+/* ------------------------------------------------------------- отправка */
 
 async function api(env, method, body) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`, {
@@ -323,8 +344,8 @@ async function send(env, chatId, reply) {
     chat_id: chatId, text: reply.text, parse_mode: "HTML",
     disable_web_page_preview: true,
   };
-  // Постоянное меню и кнопки под сообщением — разные вещи, и Telegram
-  // принимает только одну разметку за раз.
+  // Постоянное меню и кнопки под сообщением — разные разметки, Телеграм
+  // принимает только одну за раз.
   if (reply.buttons) body.reply_markup = reply.buttons;
   else if (reply.keyboard) body.reply_markup = reply.keyboard;
   await api(env, "sendMessage", body);
@@ -333,7 +354,6 @@ async function send(env, chatId, reply) {
 export default {
   async fetch(request, env) {
     if (request.method !== "POST") return new Response("ok");
-    // Telegram шлёт секрет заголовком — без него запрос пришёл не от него.
     if (env.WEBHOOK_SECRET &&
         request.headers.get("x-telegram-bot-api-secret-token") !== env.WEBHOOK_SECRET) {
       return new Response("forbidden", { status: 403 });
@@ -344,15 +364,16 @@ export default {
     } catch {
       return new Response("ok");
     }
-    // Нажатие на кнопку под сообщением приходит отдельным типом события.
+
     const cb = update.callback_query;
     if (cb) {
-      // Телеграм ждёт подтверждения, иначе на кнопке крутится часики.
+      // Без подтверждения на кнопке крутятся часики.
       await api(env, "answerCallbackQuery", { callback_query_id: cb.id });
-      const data = cb.data || "";
-      const text = data.startsWith("s:") ? data.slice(2)
-                 : data.startsWith("a:") ? `/a${data.slice(2)}`
-                 : data.startsWith("c:") ? data.slice(2)
+      const d = cb.data || "";
+      const text = d.startsWith("s:") ? d.slice(2)
+                 : d.startsWith("a:") ? `/a${d.slice(2)}`
+                 : d.startsWith("n:") ? `/n${d.slice(2)}`
+                 : d.startsWith("c:") ? d.slice(2)
                  : "/start";
       let reply;
       try {

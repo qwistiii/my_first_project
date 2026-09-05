@@ -39,15 +39,21 @@ const ask = async text => {
 };
 const tap = async data => {
   const m = await post({ callback_query: { id: "1", data, message: { chat: { id: 1 } } } });
-  return m ? m.text.split("\n").slice(0, 3).join("\n") : "(нет ответа)";
+  if (!m) return "(нет ответа)";
+  const kb = m.reply_markup?.inline_keyboard
+    ? "\n[кнопки: " + m.reply_markup.inline_keyboard.flat().map(b => b.text).join(" | ") + "]"
+    : "";
+  return m.text + kb;
 };
 
-for (const cmd of ["/start", "🎮 Аккаунты", "💰 Где дешевле", "blue"]) {
+for (const cmd of ["/start", "💰 Вирты", "🎮 Аккаунты", "blue"]) {
   const out = await ask(cmd);
   console.log(`\n===== ${cmd} =====\n${out}`);
 }
 
-console.log("\n===== нажатие кнопки s:42 =====\n" + await tap("s:42"));
+for (const d of ["c:/cheap", "c:/all 0", "c:/all 5", "c:/lvl", "c:/lvl 3", "c:/acc", "c:/acc_bad", "n:3"]) {
+  console.log(`\n===== кнопка ${d} =====\n` + await tap(d));
+}
 // Карточка лота: берём id первого лота из выгрузки.
 const firstLot = JSON.parse(accData).lots.filter(l => l.c === "ok")[0];
 console.log("\n===== карточка лота =====\n" + (await post({
